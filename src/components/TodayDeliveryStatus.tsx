@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -42,7 +41,14 @@ const TodayDeliveryStatus = ({ customerId, customerName }: TodayDeliveryStatusPr
         return;
       }
 
-      setTodayDelivery(data);
+      if (data) {
+        setTodayDelivery({
+          status: data.status as 'delivered' | 'missed',
+          quantity_delivered: data.quantity_delivered,
+          delivery_time: data.delivery_time || '',
+          notes: data.notes || ''
+        });
+      }
     } catch (error) {
       console.error('Error:', error);
     } finally {
