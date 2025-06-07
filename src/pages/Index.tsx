@@ -1,11 +1,89 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft } from 'lucide-react';
+import RoleSelector from '@/components/RoleSelector';
+import QRScanner from '@/components/QRScanner';
+import DeliveryHistory from '@/components/DeliveryHistory';
+import OwnerDashboard from '@/components/OwnerDashboard';
+
+type UserRole = 'customer' | 'delivery' | 'owner';
+type AppState = 'role-selection' | 'main-interface' | 'history-view';
 
 const Index = () => {
+  const [currentState, setCurrentState] = useState<AppState>('role-selection');
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+
+  const handleRoleSelect = (role: UserRole) => {
+    setUserRole(role);
+    if (role === 'owner') {
+      setCurrentState('main-interface');
+    } else {
+      setCurrentState('main-interface');
+    }
+  };
+
+  const handleScanComplete = (customerId: string, status: string) => {
+    setSelectedCustomerId(customerId);
+    setCurrentState('history-view');
+    console.log(`Delivery ${status} for customer ${customerId}`);
+  };
+
+  const handleStatusChange = (deliveryId: string, newStatus: string) => {
+    console.log(`Changed delivery ${deliveryId} status to ${newStatus}`);
+    // In a real app, this would update the backend
+  };
+
+  const handleBack = () => {
+    if (currentState === 'history-view') {
+      setCurrentState('main-interface');
+      setSelectedCustomerId(null);
+    } else {
+      setCurrentState('role-selection');
+      setUserRole(null);
+    }
+  };
+
+  if (currentState === 'role-selection') {
+    return <RoleSelector onRoleSelect={handleRoleSelect} />;
+  }
+
+  if (userRole === 'owner') {
+    return (
+      <div>
+        <div className="p-4 bg-white border-b">
+          <Button variant="outline" onClick={handleBack} className="mb-2">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Role Selection
+          </Button>
+        </div>
+        <OwnerDashboard />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50">
+      <div className="p-4">
+        <Button variant="outline" onClick={handleBack} className="mb-4">
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          {currentState === 'history-view' ? 'Back to Scanner' : 'Back to Role Selection'}
+        </Button>
+      </div>
+
+      <div className="flex items-center justify-center p-4">
+        {currentState === 'main-interface' && userRole && (
+          <QRScanner userRole={userRole} onScanComplete={handleScanComplete} />
+        )}
+
+        {currentState === 'history-view' && selectedCustomerId && userRole && (
+          <DeliveryHistory 
+            customerId={selectedCustomerId} 
+            userRole={userRole}
+            onStatusChange={handleStatusChange}
+          />
+        )}
       </div>
     </div>
   );
