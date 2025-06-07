@@ -3,7 +3,8 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Download, Calendar, DollarSign, Package } from 'lucide-react';
+import { Download, Calendar, DollarSign, Package, Phone, Copy } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface BillingData {
   customerId: string;
@@ -23,6 +24,8 @@ interface CustomerBillingProps {
 }
 
 const CustomerBilling = ({ billingData }: CustomerBillingProps) => {
+  const { toast } = useToast();
+  
   const {
     customerName,
     month,
@@ -36,6 +39,16 @@ const CustomerBilling = ({ billingData }: CustomerBillingProps) => {
   } = billingData;
 
   const successRate = ((deliveredDays / totalDays) * 100).toFixed(1);
+
+  const phonePayNumbers = ['+919703775498', '+919700567383'];
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Copied!",
+      description: `${text} copied to clipboard`,
+    });
+  };
 
   const exportBill = () => {
     const billData = [
@@ -55,6 +68,10 @@ const CustomerBilling = ({ billingData }: CustomerBillingProps) => {
       ['Billing Details'],
       ['Daily Rate', `₹${pricePerLiter * quantity}`],
       ['Total Amount', `₹${totalAmount}`],
+      [''],
+      ['Payment Information'],
+      ['PhonePe Number 1', phonePayNumbers[0]],
+      ['PhonePe Number 2', phonePayNumbers[1]],
       [''],
       ['Generated on', new Date().toLocaleDateString()]
     ];
@@ -126,6 +143,32 @@ const CustomerBilling = ({ billingData }: CustomerBillingProps) => {
           <div className="text-xs text-gray-500 mt-1">
             {deliveredDays} days × ₹{pricePerLiter * quantity}
           </div>
+        </div>
+
+        {/* Payment Information */}
+        <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+          <div className="flex items-center gap-2 mb-3">
+            <Phone className="w-4 h-4 text-green-600" />
+            <span className="font-medium text-green-800">Payment via PhonePe</span>
+          </div>
+          <div className="space-y-2">
+            {phonePayNumbers.map((number, index) => (
+              <div key={index} className="flex items-center justify-between bg-white p-2 rounded border">
+                <span className="font-mono text-sm">{number}</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => copyToClipboard(number)}
+                  className="h-6 w-6 p-0"
+                >
+                  <Copy className="w-3 h-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-green-700 mt-2">
+            Pay ₹{totalAmount} to any of the above numbers and send screenshot as confirmation.
+          </p>
         </div>
 
         {/* Export Button */}
