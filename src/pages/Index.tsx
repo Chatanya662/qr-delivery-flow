@@ -6,18 +6,32 @@ import RoleSelector from '@/components/RoleSelector';
 import DeliveryInterface from '@/components/DeliveryInterface';
 import DeliveryHistory from '@/components/DeliveryHistory';
 import OwnerDashboard from '@/components/OwnerDashboard';
+import DeliveryNavigation from '@/components/DeliveryNavigation';
 
 type UserRole = 'customer' | 'delivery' | 'owner';
-type AppState = 'role-selection' | 'main-interface' | 'history-view';
+type AppState = 'role-selection' | 'main-interface' | 'history-view' | 'delivery-navigation';
 
 const Index = () => {
   const [currentState, setCurrentState] = useState<AppState>('role-selection');
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
+  // Mock customers data with quantities
+  const mockCustomers = [
+    { id: '101', name: 'Rajesh Kumar', address: 'House 45, Sector 12, Green Valley', quantity: 2 },
+    { id: '102', name: 'Priya Sharma', address: 'Flat 23, Block B, Green Valley', quantity: 1 },
+    { id: '103', name: 'Amit Singh', address: 'Villa 78, Rose Garden Colony', quantity: 1.5 },
+    { id: '104', name: 'Sunita Devi', address: 'House 12, Main Street, City Center', quantity: 1 },
+    { id: '105', name: 'Vikram Gupta', address: 'Apt 567, Hill View Apartments', quantity: 2.5 },
+  ];
+
   const handleRoleSelect = (role: UserRole) => {
     setUserRole(role);
-    setCurrentState('main-interface');
+    if (role === 'delivery') {
+      setCurrentState('delivery-navigation');
+    } else {
+      setCurrentState('main-interface');
+    }
   };
 
   const handleDeliveryComplete = (customerId: string, status: string) => {
@@ -28,13 +42,19 @@ const Index = () => {
 
   const handleStatusChange = (deliveryId: string, newStatus: string) => {
     console.log(`Changed delivery ${deliveryId} status to ${newStatus}`);
-    // In a real app, this would update the backend
   };
 
   const handleBack = () => {
     if (currentState === 'history-view') {
-      setCurrentState('main-interface');
+      if (userRole === 'delivery') {
+        setCurrentState('delivery-navigation');
+      } else {
+        setCurrentState('main-interface');
+      }
       setSelectedCustomerId(null);
+    } else if (currentState === 'delivery-navigation') {
+      setCurrentState('role-selection');
+      setUserRole(null);
     } else {
       setCurrentState('role-selection');
       setUserRole(null);
@@ -73,13 +93,20 @@ const Index = () => {
         <div className="max-w-7xl mx-auto p-4">
           <Button variant="outline" onClick={handleBack}>
             <ArrowLeft className="w-4 h-4 mr-2" />
-            {currentState === 'history-view' ? 'Back to Customer Selection' : 'Back to Role Selection'}
+            {currentState === 'history-view' ? 'Back to Delivery' : 'Back to Role Selection'}
           </Button>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto p-4">
-        {currentState === 'main-interface' && userRole && (
+        {currentState === 'delivery-navigation' && userRole === 'delivery' && (
+          <DeliveryNavigation 
+            customers={mockCustomers}
+            userRole={userRole}
+          />
+        )}
+
+        {currentState === 'main-interface' && userRole && userRole !== 'delivery' && (
           <div className="flex justify-center">
             <DeliveryInterface userRole={userRole} onDeliveryComplete={handleDeliveryComplete} />
           </div>

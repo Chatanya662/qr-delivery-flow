@@ -5,8 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Users, Package, TrendingUp, Plus, Search, Edit, Trash2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Users, Package, TrendingUp, Plus, Search, Edit, Trash2, BarChart3, Settings } from 'lucide-react';
+import QuantityManager from './QuantityManager';
+import ReportsOverview from './ReportsOverview';
 
 interface Customer {
   id: string;
@@ -15,25 +17,28 @@ interface Customer {
   address: string;
   status: 'active' | 'inactive';
   qrCode: string;
+  quantity: number;
+  pricePerLiter: number;
 }
 
 const OwnerDashboard = () => {
   const [customers, setCustomers] = useState<Customer[]>([
-    { id: 'C001', name: 'Rajesh Sharma', phone: '9876543210', address: 'Block A-101, Green Valley', status: 'active', qrCode: 'KC001' },
-    { id: 'C002', name: 'Priya Patel', phone: '9876543211', address: 'Block B-205, Green Valley', status: 'active', qrCode: 'KC002' },
-    { id: 'C003', name: 'Amit Kumar', phone: '9876543212', address: 'Block C-304, Green Valley', status: 'inactive', qrCode: 'KC003' },
+    { id: 'C001', name: 'Rajesh Sharma', phone: '9876543210', address: 'Block A-101, Green Valley', status: 'active', qrCode: 'KC001', quantity: 2, pricePerLiter: 100 },
+    { id: 'C002', name: 'Priya Patel', phone: '9876543211', address: 'Block B-205, Green Valley', status: 'active', qrCode: 'KC002', quantity: 1, pricePerLiter: 100 },
+    { id: 'C003', name: 'Amit Kumar', phone: '9876543212', address: 'Block C-304, Green Valley', status: 'inactive', qrCode: 'KC003', quantity: 1.5, pricePerLiter: 100 },
   ]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-  const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', address: '' });
+  const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', address: '', quantity: 1, pricePerLiter: 100 });
 
   const stats = {
     totalCustomers: customers.length,
     activeCustomers: customers.filter(c => c.status === 'active').length,
     todayDeliveries: 25,
     completedDeliveries: 23,
+    totalRevenue: customers.filter(c => c.status === 'active').reduce((sum, c) => sum + (c.quantity * c.pricePerLiter * 30), 0)
   };
 
   const filteredCustomers = customers.filter(customer =>
@@ -54,13 +59,9 @@ const OwnerDashboard = () => {
         status: 'active'
       }]);
       
-      setNewCustomer({ name: '', phone: '', address: '' });
+      setNewCustomer({ name: '', phone: '', address: '', quantity: 1, pricePerLiter: 100 });
       setShowAddForm(false);
     }
-  };
-
-  const handleEditCustomer = (customer: Customer) => {
-    setEditingCustomer(customer);
   };
 
   const handleUpdateCustomer = () => {
@@ -78,6 +79,18 @@ const OwnerDashboard = () => {
     }
   };
 
+  const handleUpdateQuantity = (customerId: string, newQuantity: number) => {
+    setCustomers(customers.map(c => 
+      c.id === customerId ? { ...c, quantity: newQuantity } : c
+    ));
+  };
+
+  const handleUpdatePrice = (customerId: string, newPrice: number) => {
+    setCustomers(customers.map(c => 
+      c.id === customerId ? { ...c, pricePerLiter: newPrice } : c
+    ));
+  };
+
   const toggleCustomerStatus = (customerId: string) => {
     setCustomers(customers.map(c => 
       c.id === customerId 
@@ -91,11 +104,11 @@ const OwnerDashboard = () => {
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">KC Farms - Owner Dashboard</h1>
-          <p className="text-gray-600">Manage your milk delivery operations easily</p>
+          <p className="text-gray-600">Complete management of your milk delivery business</p>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
           <Card className="border-l-4 border-l-blue-500">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -112,7 +125,7 @@ const OwnerDashboard = () => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 font-medium">Active Customers</p>
+                  <p className="text-sm text-gray-600 font-medium">Active</p>
                   <p className="text-3xl font-bold text-green-600">{stats.activeCustomers}</p>
                 </div>
                 <TrendingUp className="w-12 h-12 text-green-500" />
@@ -136,19 +149,33 @@ const OwnerDashboard = () => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 font-medium">Completed Today</p>
+                  <p className="text-sm text-gray-600 font-medium">Completed</p>
                   <p className="text-3xl font-bold text-orange-600">{stats.completedDeliveries}</p>
                 </div>
                 <Package className="w-12 h-12 text-orange-500" />
               </div>
             </CardContent>
           </Card>
+
+          <Card className="border-l-4 border-l-red-500">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 font-medium">Monthly Revenue</p>
+                  <p className="text-2xl font-bold text-red-600">₹{stats.totalRevenue.toLocaleString()}</p>
+                </div>
+                <TrendingUp className="w-12 h-12 text-red-500" />
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <Tabs defaultValue="customers" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="customers">Customer Management</TabsTrigger>
-            <TabsTrigger value="deliveries">Delivery Overview</TabsTrigger>
+            <TabsTrigger value="quantities">Quantity & Pricing</TabsTrigger>
+            <TabsTrigger value="reports">Reports & Analytics</TabsTrigger>
+            <TabsTrigger value="deliveries">Daily Operations</TabsTrigger>
           </TabsList>
 
           <TabsContent value="customers">
@@ -178,7 +205,7 @@ const OwnerDashboard = () => {
                 {showAddForm && (
                   <div className="p-6 border rounded-lg bg-blue-50 border-blue-200">
                     <h3 className="font-semibold mb-4 text-blue-800">Add New Customer</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                       <Input
                         placeholder="Customer Name"
                         value={newCustomer.name}
@@ -193,6 +220,21 @@ const OwnerDashboard = () => {
                         placeholder="Full Address"
                         value={newCustomer.address}
                         onChange={(e) => setNewCustomer({...newCustomer, address: e.target.value})}
+                      />
+                      <Input
+                        type="number"
+                        placeholder="Quantity (L)"
+                        value={newCustomer.quantity}
+                        onChange={(e) => setNewCustomer({...newCustomer, quantity: Number(e.target.value)})}
+                        step="0.5"
+                        min="0"
+                      />
+                      <Input
+                        type="number"
+                        placeholder="Price/L (₹)"
+                        value={newCustomer.pricePerLiter}
+                        onChange={(e) => setNewCustomer({...newCustomer, pricePerLiter: Number(e.target.value)})}
+                        min="0"
                       />
                     </div>
                     <div className="flex gap-3 mt-4">
@@ -230,13 +272,17 @@ const OwnerDashboard = () => {
                                 {customer.status}
                               </Badge>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-gray-600">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 text-sm text-gray-600">
                               <p><span className="font-medium">ID:</span> {customer.id}</p>
                               <p><span className="font-medium">Phone:</span> {customer.phone}</p>
-                              <p><span className="font-medium">QR Code:</span> {customer.qrCode}</p>
+                              <p><span className="font-medium">QR:</span> {customer.qrCode}</p>
+                              <p><span className="font-medium">Daily:</span> {customer.quantity}L @ ₹{customer.pricePerLiter}</p>
                             </div>
                             <p className="text-sm text-gray-600 mt-1">
                               <span className="font-medium">Address:</span> {customer.address}
+                            </p>
+                            <p className="text-sm font-medium text-green-600 mt-1">
+                              Monthly Revenue: ₹{(customer.quantity * customer.pricePerLiter * 30).toLocaleString()}
                             </p>
                           </div>
                           <div className="flex gap-2 ml-4">
@@ -251,7 +297,7 @@ const OwnerDashboard = () => {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleEditCustomer(customer)}
+                              onClick={() => setEditingCustomer(customer)}
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
@@ -273,16 +319,31 @@ const OwnerDashboard = () => {
             </Card>
           </TabsContent>
 
+          <TabsContent value="quantities">
+            <QuantityManager 
+              customers={customers}
+              onUpdateQuantity={handleUpdateQuantity}
+              onUpdatePrice={handleUpdatePrice}
+            />
+          </TabsContent>
+
+          <TabsContent value="reports">
+            <ReportsOverview />
+          </TabsContent>
+
           <TabsContent value="deliveries">
             <Card>
               <CardHeader>
-                <CardTitle>Today's Delivery Overview</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5" />
+                  Daily Operations Dashboard
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-center py-12 text-gray-500">
                   <Package className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                  <p className="text-lg mb-2">Delivery Management Coming Soon</p>
-                  <p className="text-sm">Track deliveries, assign routes, and monitor performance</p>
+                  <p className="text-lg mb-2">Real-time Delivery Tracking Coming Soon</p>
+                  <p className="text-sm">Monitor live deliveries, assign routes, and track performance</p>
                 </div>
               </CardContent>
             </Card>
@@ -320,6 +381,27 @@ const OwnerDashboard = () => {
                     onChange={(e) => setEditingCustomer({...editingCustomer, address: e.target.value})}
                     placeholder="Full Address"
                   />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Quantity (L)</label>
+                    <Input
+                      type="number"
+                      value={editingCustomer.quantity}
+                      onChange={(e) => setEditingCustomer({...editingCustomer, quantity: Number(e.target.value)})}
+                      step="0.5"
+                      min="0"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Price/L (₹)</label>
+                    <Input
+                      type="number"
+                      value={editingCustomer.pricePerLiter}
+                      onChange={(e) => setEditingCustomer({...editingCustomer, pricePerLiter: Number(e.target.value)})}
+                      min="0"
+                    />
+                  </div>
                 </div>
                 <div className="flex gap-3 pt-4">
                   <Button onClick={handleUpdateCustomer} className="flex-1">
