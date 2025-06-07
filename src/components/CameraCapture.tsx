@@ -3,6 +3,8 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Camera, X, RotateCcw, Check, AlertTriangle, User } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface CameraCaptureProps {
   isOpen: boolean;
@@ -11,15 +13,18 @@ interface CameraCaptureProps {
   deliveryDate: string;
   customerName: string;
   customerAddress: string;
+  customerId?: string;
 }
 
-const CameraCapture = ({ isOpen, onClose, onPhotoTaken, deliveryDate, customerName, customerAddress }: CameraCaptureProps) => {
+const CameraCapture = ({ isOpen, onClose, onPhotoTaken, deliveryDate, customerName, customerAddress, customerId }: CameraCaptureProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [error, setError] = useState<string>('');
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (isOpen) {
@@ -77,9 +82,107 @@ const CameraCapture = ({ isOpen, onClose, onPhotoTaken, deliveryDate, customerNa
     setShowConfirmation(false);
   };
 
-  const handleDeliveryStatus = (status: 'delivered' | 'missed') => {
-    if (capturedPhoto) {
+  const uploadPhotoToSupabase = async (photoData: string): Promise<string | null> => {
+    try {
+      // Convert base64 to blob
+      const response = await fetch(photoData);
+      const blob = await response.blob();
+      
+      // Create unique filename
+      const fileName = `delivery-${customerId}-${deliveryDate}-${Date.now()}.jpg`;
+      
+      // Upload to Supabase storage
+      const { data, error } = await supabase.storage
+        .from('delivery-photos')
+        .upload(fileName, blob, {
+          contentType: 'image/jpeg',
+          upsert: false
+        });
+
+      if (error) {
+        console.error('Upload error:', error);
+        return null;
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('delivery-photos')
+        .getPublicUrl(fileName);
+
+      return urlData.publicUrl;
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      return null;
+    }
+  };
+
+  const saveDeliveryRecord = async (status: 'delivered' | 'missed', photoUrl?: string) => {
+    if (!customerId) return;
+
+    try {
+      const { error } = await supabase
+        .from('delivery_records')
+        .upsert({
+          customer_id: customerId,
+          delivery_date: deliveryDate,
+          status,
+          delivery_time: new Date().toTimeString().slice(0, 8),
+          photo_url: photoUrl,
+          delivered_by: 'Delivery Person',
+          notes: status === 'delivered' ? 'Successfully delivered' : 'Delivery missed'
+        });
+
+      if (error) {
+        console.error('Error saving delivery record:', error);
+        toast({
+          title: "Error",
+          description: "Failed to save delivery record",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: `Delivery ${status} recorded successfully`,
+        });
+      }
+    } catch (error) {
+      console.error('Database error:', error);
+    }
+  };
+
+  const handleDeliveryStatus = async (status: 'delivered' | 'missed') => {
+    if (!capturedPhoto) return;
+
+    setIsUploading(true);
+    
+    try {
+      let photoUrl = null;
+      
+      if (status === 'delivered') {
+        photoUrl = await uploadPhotoToSupabase(capturedPhoto);
+        if (!photoUrl) {
+          toast({
+            title: "Upload Failed",
+            description: "Failed to upload photo. Please try again.",
+            variant: "destructive",
+          });
+          setIsUploading(false);
+          return;
+        }
+      }
+
+      await saveDeliveryRecord(status, photoUrl);
       onPhotoTaken(capturedPhoto, status);
+      
+    } catch (error) {
+      console.error('Error handling delivery status:', error);
+      toast({
+        title: "Error",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
       setCapturedPhoto(null);
       setShowConfirmation(false);
     }
@@ -96,7 +199,7 @@ const CameraCapture = ({ isOpen, onClose, onPhotoTaken, deliveryDate, customerNa
               <Camera className="w-5 h-5" />
               Delivery Confirmation
             </CardTitle>
-            <Button variant="ghost" size="sm" onClick={onClose}>
+            <Button variant="ghost" size="sm" onClick={onClose} disabled={isUploading}>
               <X className="w-4 h-4" />
             </Button>
           </div>
@@ -142,12 +245,12 @@ const CameraCapture = ({ isOpen, onClose, onPhotoTaken, deliveryDate, customerNa
               {!showConfirmation ? (
                 <div className="flex gap-2 justify-center">
                   {!capturedPhoto ? (
-                    <Button onClick={takePhoto} className="flex-1">
+                    <Button onClick={takePhoto} className="flex-1" disabled={isUploading}>
                       <Camera className="w-4 h-4 mr-2" />
                       Take Photo
                     </Button>
                   ) : (
-                    <Button onClick={retakePhoto} variant="outline" className="flex-1">
+                    <Button onClick={retakePhoto} variant="outline" className="flex-1" disabled={isUploading}>
                       <RotateCcw className="w-4 h-4 mr-2" />
                       Retake Photo
                     </Button>
@@ -163,20 +266,22 @@ const CameraCapture = ({ isOpen, onClose, onPhotoTaken, deliveryDate, customerNa
                     <Button 
                       onClick={() => handleDeliveryStatus('delivered')}
                       className="bg-green-600 hover:bg-green-700 text-white"
+                      disabled={isUploading}
                     >
                       <Check className="w-4 h-4 mr-2" />
-                      Delivered
+                      {isUploading ? 'Saving...' : 'Delivered'}
                     </Button>
                     <Button 
                       onClick={() => handleDeliveryStatus('missed')}
                       variant="outline"
                       className="border-red-300 text-red-600 hover:bg-red-50"
+                      disabled={isUploading}
                     >
                       <AlertTriangle className="w-4 h-4 mr-2" />
                       Missed
                     </Button>
                   </div>
-                  <Button onClick={retakePhoto} variant="ghost" className="w-full">
+                  <Button onClick={retakePhoto} variant="ghost" className="w-full" disabled={isUploading}>
                     <RotateCcw className="w-4 h-4 mr-2" />
                     Retake Photo
                   </Button>

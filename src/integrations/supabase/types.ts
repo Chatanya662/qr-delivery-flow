@@ -9,6 +9,77 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      customers: {
+        Row: {
+          address: string
+          created_at: string
+          id: string
+          name: string
+          quantity: number
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          id?: string
+          name: string
+          quantity?: number
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          id?: string
+          name?: string
+          quantity?: number
+        }
+        Relationships: []
+      }
+      delivery_records: {
+        Row: {
+          created_at: string
+          customer_id: string
+          delivered_by: string | null
+          delivery_date: string
+          delivery_time: string | null
+          id: string
+          notes: string | null
+          photo_url: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          delivered_by?: string | null
+          delivery_date: string
+          delivery_time?: string | null
+          id?: string
+          notes?: string | null
+          photo_url?: string | null
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          delivered_by?: string | null
+          delivery_date?: string
+          delivery_time?: string | null
+          id?: string
+          notes?: string | null
+          photo_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_records_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       otp_codes: {
         Row: {
           created_at: string

@@ -1,10 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, ArrowRight, User, MapPin, Camera, Eye } from 'lucide-react';
+import { ArrowLeft, ArrowRight, User, MapPin, Camera, Eye, Loader2 } from 'lucide-react';
 import CameraCapture from './CameraCapture';
 import CustomerBilling from './CustomerBilling';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface Customer {
   id: string;
@@ -18,14 +20,54 @@ interface DeliveryNavigationProps {
   userRole: 'delivery' | 'customer' | 'owner';
 }
 
-const DeliveryNavigation = ({ customers, userRole }: DeliveryNavigationProps) => {
+const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavigationProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showCamera, setShowCamera] = useState(false);
   const [showBilling, setShowBilling] = useState(false);
   const [deliveryStatus, setDeliveryStatus] = useState<Record<string, 'delivered' | 'missed'>>({});
+  const [customers, setCustomers] = useState<Customer[]>(propCustomers);
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+
+  const today = new Date().toISOString().split('T')[0];
+
+  useEffect(() => {
+    if (propCustomers.length === 0) {
+      fetchCustomers();
+    } else {
+      setCustomers(propCustomers);
+    }
+  }, [propCustomers]);
+
+  const fetchCustomers = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('customers')
+        .select('*')
+        .order('name');
+
+      if (error) {
+        console.error('Error fetching customers:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load customers",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data) {
+        setCustomers(data);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const currentCustomer = customers[currentIndex];
-  const today = new Date().toISOString().split('T')[0];
 
   const handleNext = () => {
     if (currentIndex < customers.length - 1) {
@@ -76,6 +118,15 @@ const DeliveryNavigation = ({ customers, userRole }: DeliveryNavigationProps) =>
       quantity: currentCustomer.quantity
     };
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="w-8 h-8 animate-spin text-gray-500" />
+        <span className="ml-2 text-gray-500">Loading customers...</span>
+      </div>
+    );
+  }
 
   if (!currentCustomer) {
     return (
@@ -176,6 +227,7 @@ const DeliveryNavigation = ({ customers, userRole }: DeliveryNavigationProps) =>
           deliveryDate={today}
           customerName={currentCustomer.name}
           customerAddress={currentCustomer.address}
+          customerId={currentCustomer.id}
         />
       )}
 

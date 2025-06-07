@@ -1,13 +1,15 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Download, Camera, Eye, DollarSign } from 'lucide-react';
+import { Calendar, Download, Camera, Eye, DollarSign, Loader2 } from 'lucide-react';
 import CameraCapture from './CameraCapture';
 import DeliveryPhotos from './DeliveryPhotos';
 import CustomerBilling from './CustomerBilling';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface DeliveryRecord {
   date: string;
@@ -27,8 +29,105 @@ const DeliveryTracker = ({ customerId, customerName, userRole }: DeliveryTracker
   const [showPhotos, setShowPhotos] = useState(false);
   const [showBilling, setShowBilling] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
+  const [deliveryData, setDeliveryData] = useState<DeliveryRecord[]>([]);
+  const [customerQuantity, setCustomerQuantity] = useState(2);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
-  // Generate current month data (June 2025)
+  useEffect(() => {
+    fetchCustomerData();
+    fetchDeliveryRecords();
+  }, [customerId]);
+
+  const fetchCustomerData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('customers')
+        .select('quantity')
+        .eq('id', customerId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching customer:', error);
+        return;
+      }
+
+      if (data) {
+        setCustomerQuantity(data.quantity);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+  const fetchDeliveryRecords = async () => {
+    try {
+      setLoading(true);
+      
+      // Get current month data
+      const currentDate = new Date();
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      const startOfMonth = new Date(year, month, 1).toISOString().split('T')[0];
+      const endOfMonth = new Date(year, month + 1, 0).toISOString().split('T')[0];
+
+      const { data, error } = await supabase
+        .from('delivery_records')
+        .select('*')
+        .eq('customer_id', customerId)
+        .gte('delivery_date', startOfMonth)
+        .lte('delivery_date', endOfMonth)
+        .order('delivery_date', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching delivery records:', error);
+        // Generate mock data if database fetch fails
+        setDeliveryData(generateMonthData());
+        return;
+      }
+
+      // Convert database records to DeliveryRecord format
+      const records: DeliveryRecord[] = [];
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${year}-${(month + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+        const dbRecord = data.find(record => record.delivery_date === dateStr);
+        
+        if (dbRecord) {
+          records.push({
+            date: dateStr,
+            status: dbRecord.status as 'delivered' | 'missed' | 'holiday',
+            time: dbRecord.delivery_time || undefined,
+            photoId: dbRecord.photo_url ? dbRecord.id : undefined
+          });
+        } else {
+          // Default to missed for days without records (except future dates)
+          const today = new Date().toISOString().split('T')[0];
+          const status = dateStr > today ? 'missed' : 'missed';
+          records.push({
+            date: dateStr,
+            status,
+            time: undefined
+          });
+        }
+      }
+
+      setDeliveryData(records);
+    } catch (error) {
+      console.error('Error:', error);
+      // Fallback to mock data
+      setDeliveryData(generateMonthData());
+      toast({
+        title: "Note",
+        description: "Showing sample data. Connect to database for real records.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Generate current month data (fallback for demo)
   const generateMonthData = (): DeliveryRecord[] => {
     const daysInMonth = 30; // June has 30 days
     const records: DeliveryRecord[] = [];
@@ -55,12 +154,9 @@ const DeliveryTracker = ({ customerId, customerName, userRole }: DeliveryTracker
     return records;
   };
 
-  const deliveryData = generateMonthData();
   const deliveredDays = deliveryData.filter(record => record.status === 'delivered').length;
   const missedDays = deliveryData.filter(record => record.status === 'missed').length;
 
-  // Mock customer data for billing
-  const customerQuantity = 2; // liters per day
   const pricePerLiter = 100;
   const totalAmount = deliveredDays * pricePerLiter * customerQuantity;
 
@@ -99,6 +195,14 @@ const DeliveryTracker = ({ customerId, customerName, userRole }: DeliveryTracker
     console.log(`Photo taken for ${selectedDate}:`, photoData);
     console.log(`Delivery status: ${status}`);
     setShowCamera(false);
+    
+    // Refresh delivery records to show updated data
+    fetchDeliveryRecords();
+    
+    toast({
+      title: "Success",
+      description: `Delivery ${status} recorded successfully`,
+    });
   };
 
   const exportToExcel = () => {
@@ -139,6 +243,15 @@ const DeliveryTracker = ({ customerId, customerName, userRole }: DeliveryTracker
     a.click();
     window.URL.revokeObjectURL(url);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="w-8 h-8 animate-spin text-gray-500" />
+        <span className="ml-2 text-gray-500">Loading delivery data...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -250,15 +363,13 @@ const DeliveryTracker = ({ customerId, customerName, userRole }: DeliveryTracker
                       </TableCell>
                       {userRole === 'delivery' && (
                         <TableCell>
-                          {record.status === 'delivered' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleTakePhoto(record.date)}
-                            >
-                              <Camera className="w-4 h-4" />
-                            </Button>
-                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleTakePhoto(record.date)}
+                          >
+                            <Camera className="w-4 h-4" />
+                          </Button>
                         </TableCell>
                       )}
                     </TableRow>
@@ -279,6 +390,7 @@ const DeliveryTracker = ({ customerId, customerName, userRole }: DeliveryTracker
           deliveryDate={selectedDate}
           customerName={customerName}
           customerAddress="Mock address for camera capture"
+          customerId={customerId}
         />
       )}
 
