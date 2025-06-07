@@ -9,6 +9,7 @@ import CameraCapture from './CameraCapture';
 import DeliveryPhotos from './DeliveryPhotos';
 import CustomerBilling from './CustomerBilling';
 import AttendanceStats from './AttendanceStats';
+import TodayDeliveryStatus from './TodayDeliveryStatus';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -17,6 +18,7 @@ interface DeliveryRecord {
   status: 'delivered' | 'missed' | 'holiday';
   time?: string;
   photoId?: string;
+  quantity?: number;
 }
 
 interface DeliveryTrackerProps {
@@ -100,7 +102,8 @@ const DeliveryTracker = ({ customerId, customerName, userRole }: DeliveryTracker
             date: dateStr,
             status: dbRecord.status as 'delivered' | 'missed' | 'holiday',
             time: dbRecord.delivery_time || undefined,
-            photoId: dbRecord.photo_url ? dbRecord.id : undefined
+            photoId: dbRecord.photo_url ? dbRecord.id : undefined,
+            quantity: dbRecord.quantity_delivered || 0
           });
         } else {
           // Default to missed for days without records (except future dates)
@@ -109,7 +112,8 @@ const DeliveryTracker = ({ customerId, customerName, userRole }: DeliveryTracker
           records.push({
             date: dateStr,
             status,
-            time: undefined
+            time: undefined,
+            quantity: 0
           });
         }
       }
@@ -159,7 +163,9 @@ const DeliveryTracker = ({ customerId, customerName, userRole }: DeliveryTracker
   const missedDays = deliveryData.filter(record => record.status === 'missed').length;
 
   const pricePerLiter = 100;
-  const totalAmount = deliveredDays * pricePerLiter * customerQuantity;
+  const totalAmount = deliveryData
+    .filter(record => record.status === 'delivered')
+    .reduce((sum, record) => sum + (record.quantity || customerQuantity) * pricePerLiter, 0);
 
   const billingData = {
     customerId,
@@ -292,6 +298,12 @@ const DeliveryTracker = ({ customerId, customerName, userRole }: DeliveryTracker
 
   return (
     <div className="space-y-6">
+      {/* Today's Delivery Status */}
+      <TodayDeliveryStatus 
+        customerId={customerId}
+        customerName={customerName}
+      />
+
       {/* Attendance Statistics */}
       <AttendanceStats 
         customerId={customerId}
@@ -338,6 +350,7 @@ const DeliveryTracker = ({ customerId, customerName, userRole }: DeliveryTracker
                   <TableHead>Date</TableHead>
                   <TableHead>Day</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Quantity</TableHead>
                   <TableHead>Time</TableHead>
                   <TableHead>Amount</TableHead>
                   {userRole === 'delivery' && <TableHead>Photo</TableHead>}
@@ -348,7 +361,8 @@ const DeliveryTracker = ({ customerId, customerName, userRole }: DeliveryTracker
                   const date = new Date(record.date);
                   const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
                   const isToday = record.date === '2025-06-07';
-                  const dailyAmount = record.status === 'delivered' ? pricePerLiter * customerQuantity : 0;
+                  const quantity = record.quantity || (record.status === 'delivered' ? customerQuantity : 0);
+                  const dailyAmount = record.status === 'delivered' ? pricePerLiter * quantity : 0;
                   
                   return (
                     <TableRow key={record.date} className={isToday ? 'bg-blue-50' : ''}>
@@ -358,6 +372,13 @@ const DeliveryTracker = ({ customerId, customerName, userRole }: DeliveryTracker
                       </TableCell>
                       <TableCell>{dayName}</TableCell>
                       <TableCell>{getStatusBadge(record.status)}</TableCell>
+                      <TableCell>
+                        {record.status === 'delivered' ? (
+                          <span className="font-medium text-green-600">{quantity}L</span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </TableCell>
                       <TableCell>{record.time || '-'}</TableCell>
                       <TableCell>
                         {dailyAmount > 0 ? (

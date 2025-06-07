@@ -43,6 +43,7 @@ export type Database = {
           id: string
           notes: string | null
           photo_url: string | null
+          quantity_delivered: number
           status: string
           updated_at: string
         }
@@ -55,6 +56,7 @@ export type Database = {
           id?: string
           notes?: string | null
           photo_url?: string | null
+          quantity_delivered?: number
           status: string
           updated_at?: string
         }
@@ -67,6 +69,7 @@ export type Database = {
           id?: string
           notes?: string | null
           photo_url?: string | null
+          quantity_delivered?: number
           status?: string
           updated_at?: string
         }

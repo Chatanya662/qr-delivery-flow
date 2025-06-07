@@ -40,6 +40,7 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
     } else {
       setCustomers(propCustomers);
     }
+    fetchTodayDeliveries();
   }, [propCustomers]);
 
   const fetchCustomers = async () => {
@@ -67,6 +68,33 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
       console.error('Error:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTodayDeliveries = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('delivery_records')
+        .select('customer_id, status, quantity_delivered')
+        .eq('delivery_date', today);
+
+      if (error) {
+        console.error('Error fetching today deliveries:', error);
+        return;
+      }
+
+      if (data) {
+        const statusMap: Record<string, { status: 'delivered' | 'missed', quantity?: number }> = {};
+        data.forEach(record => {
+          statusMap[record.customer_id] = {
+            status: record.status as 'delivered' | 'missed',
+            quantity: record.quantity_delivered
+          };
+        });
+        setDeliveryStatus(statusMap);
+      }
+    } catch (error) {
+      console.error('Error:', error);
     }
   };
 
@@ -107,6 +135,7 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
         });
 
       if (error) {
+        console.error('Supabase error:', error);
         throw error;
       }
 
@@ -115,11 +144,14 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
         description: `Delivery ${status} recorded successfully${status === 'delivered' ? ` (${quantity}L)` : ''}`,
       });
 
+      // Update local state
+      setDeliveryStatus(prev => ({ ...prev, [currentCustomer.id]: { status, quantity } }));
+
     } catch (error) {
       console.error('Error saving delivery record:', error);
       toast({
         title: "Error",
-        description: "Failed to save delivery record",
+        description: "Failed to save delivery record. Please try again.",
         variant: "destructive",
       });
     }
@@ -128,7 +160,6 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
   const handleDelivered = async (quantity: number) => {
     console.log(`Delivered ${quantity} liters to ${currentCustomer.name}`);
     await saveDeliveryRecord(quantity, 'delivered');
-    setDeliveryStatus(prev => ({ ...prev, [currentCustomer.id]: { status: 'delivered', quantity } }));
     
     // Auto-navigate to next customer after delivery
     if (currentIndex < customers.length - 1) {
@@ -139,7 +170,6 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
   const handleMissed = async () => {
     console.log(`Missed delivery for ${currentCustomer.name}`);
     await saveDeliveryRecord(0, 'missed');
-    setDeliveryStatus(prev => ({ ...prev, [currentCustomer.id]: { status: 'missed' } }));
     
     // Auto-navigate to next customer
     if (currentIndex < customers.length - 1) {
@@ -168,7 +198,8 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
           delivery_time: deliveryTime,
           photo_url: photoData,
           delivered_by: 'Delivery Person',
-          notes: status === 'delivered' ? 'Successfully delivered with photo' : 'Delivery missed - photo taken'
+          notes: status === 'delivered' ? 'Successfully delivered with photo' : 'Delivery missed - photo taken',
+          quantity_delivered: status === 'delivered' ? currentCustomer.quantity : 0
         }, {
           onConflict: 'customer_id,delivery_date'
         });
@@ -191,7 +222,13 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
       });
     }
     
-    setDeliveryStatus(prev => ({ ...prev, [currentCustomer.id]: { status } }));
+    setDeliveryStatus(prev => ({ 
+      ...prev, 
+      [currentCustomer.id]: { 
+        status, 
+        quantity: status === 'delivered' ? currentCustomer.quantity : 0 
+      } 
+    }));
     setShowCamera(false);
     
     // Auto-navigate to next customer after delivery
@@ -287,22 +324,31 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
             </div>
           </div>
 
-          {/* Delivery Status */}
+          {/* Today's Delivery Status */}
           {customerStatus && (
             <div className={`p-3 rounded-lg ${
               customerStatus.status === 'delivered' 
                 ? 'bg-green-50 border border-green-200' 
                 : 'bg-red-50 border border-red-200'
             }`}>
-              <span className={`font-medium ${
+              <div className={`font-medium ${
                 customerStatus.status === 'delivered' 
                   ? 'text-green-800' 
                   : 'text-red-800'
               }`}>
-                Status: {customerStatus.status === 'delivered' 
-                  ? `Delivered ✓ ${customerStatus.quantity ? `(${customerStatus.quantity}L)` : ''}` 
+                <div>Status: {customerStatus.status === 'delivered' 
+                  ? `Delivered ✓` 
                   : 'Missed ✗'}
-              </span>
+                </div>
+                {customerStatus.status === 'delivered' && customerStatus.quantity && (
+                  <div className="text-sm mt-1">
+                    Today's Delivery: {customerStatus.quantity} Liter(s) 
+                    <span className="ml-2 text-green-600">
+                      (₹{customerStatus.quantity * 100})
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
