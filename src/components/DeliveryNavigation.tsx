@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, ArrowRight, User, MapPin, Camera, Eye, Loader2 } from 'lucide-react';
 import CameraCapture from './CameraCapture';
 import CustomerBilling from './CustomerBilling';
+import AttendanceStats from './AttendanceStats';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -24,6 +25,7 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showCamera, setShowCamera] = useState(false);
   const [showBilling, setShowBilling] = useState(false);
+  const [showStats, setShowStats] = useState(false);
   const [deliveryStatus, setDeliveryStatus] = useState<Record<string, 'delivered' | 'missed'>>({});
   const [customers, setCustomers] = useState<Customer[]>(propCustomers);
   const [loading, setLoading] = useState(false);
@@ -81,9 +83,54 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
     }
   };
 
-  const handlePhotoTaken = (photoData: string, status: 'delivered' | 'missed') => {
+  const saveDeliveryRecord = async (photoUrl: string, status: 'delivered' | 'missed') => {
+    try {
+      const deliveryTime = new Date().toLocaleTimeString('en-US', { 
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      const { error } = await supabase
+        .from('delivery_records')
+        .upsert({
+          customer_id: currentCustomer.id,
+          delivery_date: today,
+          status,
+          delivery_time: deliveryTime,
+          photo_url: photoUrl,
+          delivered_by: 'Delivery Person',
+          notes: status === 'delivered' ? 'Successfully delivered' : 'Delivery missed'
+        }, {
+          onConflict: 'customer_id,delivery_date'
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Success",
+        description: `Delivery ${status} recorded successfully`,
+      });
+
+    } catch (error) {
+      console.error('Error saving delivery record:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save delivery record",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handlePhotoTaken = async (photoData: string, status: 'delivered' | 'missed') => {
     console.log(`Photo taken for ${currentCustomer.name}:`, photoData);
     console.log(`Delivery status: ${status}`);
+    
+    // Save delivery record to database
+    await saveDeliveryRecord(photoData, status);
+    
     setDeliveryStatus(prev => ({ ...prev, [currentCustomer.id]: status }));
     setShowCamera(false);
     
@@ -214,6 +261,13 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
               <Eye className="w-4 h-4 mr-2" />
               View Bill
             </Button>
+            <Button 
+              onClick={() => setShowStats(true)}
+              variant="outline"
+              className="flex-1"
+            >
+              📊 Attendance
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -244,6 +298,26 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
               ×
             </Button>
             <CustomerBilling billingData={generateBillingData()} />
+          </div>
+        </div>
+      )}
+
+      {/* Attendance Stats Modal */}
+      {showStats && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="relative max-w-2xl w-full">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setShowStats(false)}
+              className="absolute -top-2 -right-2 bg-white rounded-full shadow-lg z-10"
+            >
+              ×
+            </Button>
+            <AttendanceStats 
+              customerId={currentCustomer.id}
+              customerName={currentCustomer.name}
+            />
           </div>
         </div>
       )}

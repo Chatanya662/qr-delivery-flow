@@ -8,6 +8,7 @@ import { Calendar, Download, Camera, Eye, DollarSign, Loader2 } from 'lucide-rea
 import CameraCapture from './CameraCapture';
 import DeliveryPhotos from './DeliveryPhotos';
 import CustomerBilling from './CustomerBilling';
+import AttendanceStats from './AttendanceStats';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -191,18 +192,54 @@ const DeliveryTracker = ({ customerId, customerName, userRole }: DeliveryTracker
     setShowCamera(true);
   };
 
-  const handlePhotoTaken = (photoData: string, status: 'delivered' | 'missed') => {
+  const handlePhotoTaken = async (photoData: string, status: 'delivered' | 'missed') => {
     console.log(`Photo taken for ${selectedDate}:`, photoData);
     console.log(`Delivery status: ${status}`);
-    setShowCamera(false);
     
-    // Refresh delivery records to show updated data
-    fetchDeliveryRecords();
-    
-    toast({
-      title: "Success",
-      description: `Delivery ${status} recorded successfully`,
-    });
+    // Save delivery record to database
+    try {
+      const deliveryTime = new Date().toLocaleTimeString('en-US', { 
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      const { error } = await supabase
+        .from('delivery_records')
+        .upsert({
+          customer_id: customerId,
+          delivery_date: selectedDate,
+          status,
+          delivery_time: deliveryTime,
+          photo_url: photoData,
+          delivered_by: 'Delivery Person',
+          notes: status === 'delivered' ? 'Successfully delivered' : 'Delivery missed'
+        }, {
+          onConflict: 'customer_id,delivery_date'
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      setShowCamera(false);
+      
+      // Refresh delivery records to show updated data
+      fetchDeliveryRecords();
+      
+      toast({
+        title: "Success",
+        description: `Delivery ${status} recorded successfully`,
+      });
+
+    } catch (error) {
+      console.error('Error saving delivery record:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save delivery record",
+        variant: "destructive",
+      });
+    }
   };
 
   const exportToExcel = () => {
@@ -255,43 +292,11 @@ const DeliveryTracker = ({ customerId, customerName, userRole }: DeliveryTracker
 
   return (
     <div className="space-y-6">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">{deliveredDays}</div>
-              <div className="text-sm text-gray-600">Days Delivered</div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-red-600">{missedDays}</div>
-              <div className="text-sm text-gray-600">Days Missed</div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">
-                {((deliveredDays / 30) * 100).toFixed(0)}%
-              </div>
-              <div className="text-sm text-gray-600">Success Rate</div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">₹{totalAmount}</div>
-              <div className="text-sm text-gray-600">Monthly Bill</div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Attendance Statistics */}
+      <AttendanceStats 
+        customerId={customerId}
+        customerName={customerName}
+      />
 
       {/* Main Delivery Table */}
       <Card>

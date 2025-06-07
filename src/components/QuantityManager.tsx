@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, Minus, Save, Package } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface Customer {
   id: string;
@@ -22,6 +24,8 @@ const QuantityManager = ({ customers, onUpdateQuantity, onUpdatePrice }: Quantit
   const [editingCustomer, setEditingCustomer] = useState<string | null>(null);
   const [tempQuantity, setTempQuantity] = useState<number>(0);
   const [tempPrice, setTempPrice] = useState<number>(0);
+  const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
 
   const handleEdit = (customer: Customer) => {
     setEditingCustomer(customer.id);
@@ -29,10 +33,38 @@ const QuantityManager = ({ customers, onUpdateQuantity, onUpdatePrice }: Quantit
     setTempPrice(customer.pricePerLiter);
   };
 
-  const handleSave = (customerId: string) => {
-    onUpdateQuantity(customerId, tempQuantity);
-    onUpdatePrice(customerId, tempPrice);
-    setEditingCustomer(null);
+  const handleSave = async (customerId: string) => {
+    setSaving(true);
+    try {
+      // Update quantity in database
+      const { error } = await supabase
+        .from('customers')
+        .update({ quantity: tempQuantity })
+        .eq('id', customerId);
+
+      if (error) {
+        throw error;
+      }
+
+      // Update local state
+      onUpdateQuantity(customerId, tempQuantity);
+      onUpdatePrice(customerId, tempPrice);
+      setEditingCustomer(null);
+      
+      toast({
+        title: "Success",
+        description: "Customer details updated successfully",
+      });
+    } catch (error) {
+      console.error('Error updating customer:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update customer details",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancel = () => {
@@ -108,14 +140,16 @@ const QuantityManager = ({ customers, onUpdateQuantity, onUpdatePrice }: Quantit
                         <Button
                           size="sm"
                           onClick={() => handleSave(customer.id)}
+                          disabled={saving}
                         >
                           <Save className="w-4 h-4 mr-1" />
-                          Save
+                          {saving ? 'Saving...' : 'Save'}
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={handleCancel}
+                          disabled={saving}
                         >
                           Cancel
                         </Button>
