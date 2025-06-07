@@ -1,7 +1,7 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, FileText } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import RoleSelector from '@/components/RoleSelector';
 import DeliveryInterface from '@/components/DeliveryInterface';
 import DeliveryHistory from '@/components/DeliveryHistory';
@@ -15,6 +15,7 @@ const Index = () => {
   const [currentState, setCurrentState] = useState<AppState>('role-selection');
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   // Mock customers data with quantities
   const mockCustomers = [
@@ -64,6 +65,12 @@ const Index = () => {
   if (currentState === 'role-selection') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+        <div className="absolute top-4 right-4">
+          <Button onClick={() => navigate('/daily-report')} variant="outline">
+            <FileText className="w-4 h-4 mr-2" />
+            Daily Reports
+          </Button>
+        </div>
         <RoleSelector onRoleSelect={handleRoleSelect} />
       </div>
     );
@@ -73,10 +80,14 @@ const Index = () => {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="sticky top-0 z-10 bg-white border-b shadow-sm">
-          <div className="max-w-7xl mx-auto p-4">
+          <div className="max-w-7xl mx-auto p-4 flex justify-between items-center">
             <Button variant="outline" onClick={handleBack}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Role Selection
+            </Button>
+            <Button onClick={() => navigate('/daily-report')} variant="outline">
+              <FileText className="w-4 h-4 mr-2" />
+              Daily Reports
             </Button>
           </div>
         </div>
@@ -90,11 +101,17 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
       <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm border-b">
-        <div className="max-w-7xl mx-auto p-4">
+        <div className="max-w-7xl mx-auto p-4 flex justify-between items-center">
           <Button variant="outline" onClick={handleBack}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             {currentState === 'history-view' ? 'Back to Delivery' : 'Back to Role Selection'}
           </Button>
+          {(userRole === 'delivery' || userRole === 'customer') && (
+            <Button onClick={() => navigate('/daily-report')} variant="outline">
+              <FileText className="w-4 h-4 mr-2" />
+              Daily Reports
+            </Button>
+          )}
         </div>
       </div>
 
