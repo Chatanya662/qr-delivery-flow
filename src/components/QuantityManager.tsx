@@ -11,31 +11,33 @@ interface Customer {
   id: string;
   name: string;
   quantity: number;
-  pricePerLiter: number;
+  address: string;
 }
 
 interface QuantityManagerProps {
   customers: Customer[];
   onUpdateQuantity: (customerId: string, newQuantity: number) => void;
-  onUpdatePrice: (customerId: string, newPrice: number) => void;
+  onUpdatePrice?: (customerId: string, newPrice: number) => void;
 }
 
 const QuantityManager = ({ customers, onUpdateQuantity, onUpdatePrice }: QuantityManagerProps) => {
   const [editingCustomer, setEditingCustomer] = useState<string | null>(null);
   const [tempQuantity, setTempQuantity] = useState<number>(0);
-  const [tempPrice, setTempPrice] = useState<number>(0);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
+
+  const pricePerLiter = 100; // Fixed price for cow milk
 
   const handleEdit = (customer: Customer) => {
     setEditingCustomer(customer.id);
     setTempQuantity(customer.quantity);
-    setTempPrice(customer.pricePerLiter);
   };
 
   const handleSave = async (customerId: string) => {
     setSaving(true);
     try {
+      console.log('Updating customer:', customerId, 'with quantity:', tempQuantity);
+      
       // Update quantity in database
       const { error } = await supabase
         .from('customers')
@@ -43,23 +45,23 @@ const QuantityManager = ({ customers, onUpdateQuantity, onUpdatePrice }: Quantit
         .eq('id', customerId);
 
       if (error) {
+        console.error('Supabase error:', error);
         throw error;
       }
 
       // Update local state
       onUpdateQuantity(customerId, tempQuantity);
-      onUpdatePrice(customerId, tempPrice);
       setEditingCustomer(null);
       
       toast({
         title: "Success",
-        description: "Customer details updated successfully",
+        description: "Customer quantity updated successfully",
       });
     } catch (error) {
       console.error('Error updating customer:', error);
       toast({
         title: "Error",
-        description: "Failed to update customer details",
+        description: "Failed to update customer details. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -70,7 +72,6 @@ const QuantityManager = ({ customers, onUpdateQuantity, onUpdatePrice }: Quantit
   const handleCancel = () => {
     setEditingCustomer(null);
     setTempQuantity(0);
-    setTempPrice(0);
   };
 
   const adjustQuantity = (change: number) => {
@@ -85,6 +86,7 @@ const QuantityManager = ({ customers, onUpdateQuantity, onUpdatePrice }: Quantit
           <Package className="w-5 h-5" />
           Quantity & Price Management
         </CardTitle>
+        <p className="text-sm text-gray-600">Cow Milk - ₹{pricePerLiter} per liter</p>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
@@ -93,6 +95,7 @@ const QuantityManager = ({ customers, onUpdateQuantity, onUpdatePrice }: Quantit
               <div className="flex items-center justify-between">
                 <div className="flex-1">
                   <h3 className="font-semibold">{customer.name}</h3>
+                  <p className="text-sm text-gray-500">{customer.address}</p>
                   {editingCustomer === customer.id ? (
                     <div className="mt-3 space-y-3">
                       <div>
@@ -124,18 +127,6 @@ const QuantityManager = ({ customers, onUpdateQuantity, onUpdatePrice }: Quantit
                           </Button>
                         </div>
                       </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-700 block mb-1">
-                          Price per Liter (₹)
-                        </label>
-                        <Input
-                          type="number"
-                          value={tempPrice}
-                          onChange={(e) => setTempPrice(Number(e.target.value))}
-                          className="w-24"
-                          min="0"
-                        />
-                      </div>
                       <div className="flex gap-2">
                         <Button
                           size="sm"
@@ -157,10 +148,10 @@ const QuantityManager = ({ customers, onUpdateQuantity, onUpdatePrice }: Quantit
                     </div>
                   ) : (
                     <div className="mt-1 text-sm text-gray-600">
-                      <p>Quantity: {customer.quantity} Liter(s) per day</p>
-                      <p>Rate: ₹{customer.pricePerLiter} per liter</p>
+                      <p>Daily Quantity: {customer.quantity} Liter(s)</p>
+                      <p>Rate: ₹{pricePerLiter} per liter</p>
                       <p className="font-medium text-gray-800">
-                        Daily Total: ₹{customer.quantity * customer.pricePerLiter}
+                        Daily Total: ₹{customer.quantity * pricePerLiter}
                       </p>
                     </div>
                   )}

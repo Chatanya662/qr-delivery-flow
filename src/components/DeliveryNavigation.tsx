@@ -2,10 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, ArrowRight, User, MapPin, Camera, Eye, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, User, MapPin, Eye, Loader2 } from 'lucide-react';
 import CameraCapture from './CameraCapture';
 import CustomerBilling from './CustomerBilling';
 import AttendanceStats from './AttendanceStats';
+import DeliveryActionButtons from './DeliveryActionButtons';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -26,7 +27,7 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
   const [showCamera, setShowCamera] = useState(false);
   const [showBilling, setShowBilling] = useState(false);
   const [showStats, setShowStats] = useState(false);
-  const [deliveryStatus, setDeliveryStatus] = useState<Record<string, 'delivered' | 'missed'>>({});
+  const [deliveryStatus, setDeliveryStatus] = useState<Record<string, { status: 'delivered' | 'missed', quantity?: number }>>({});
   const [customers, setCustomers] = useState<Customer[]>(propCustomers);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -83,7 +84,7 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
     }
   };
 
-  const saveDeliveryRecord = async (photoUrl: string, status: 'delivered' | 'missed') => {
+  const saveDeliveryRecord = async (quantity: number, status: 'delivered' | 'missed') => {
     try {
       const deliveryTime = new Date().toLocaleTimeString('en-US', { 
         hour12: false,
@@ -98,9 +99,9 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
           delivery_date: today,
           status,
           delivery_time: deliveryTime,
-          photo_url: photoUrl,
           delivered_by: 'Delivery Person',
-          notes: status === 'delivered' ? 'Successfully delivered' : 'Delivery missed'
+          notes: status === 'delivered' ? `Delivered ${quantity} liter(s)` : 'Delivery missed',
+          quantity_delivered: quantity
         }, {
           onConflict: 'customer_id,delivery_date'
         });
@@ -111,7 +112,7 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
 
       toast({
         title: "Success",
-        description: `Delivery ${status} recorded successfully`,
+        description: `Delivery ${status} recorded successfully${status === 'delivered' ? ` (${quantity}L)` : ''}`,
       });
 
     } catch (error) {
@@ -124,14 +125,73 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
     }
   };
 
+  const handleDelivered = async (quantity: number) => {
+    console.log(`Delivered ${quantity} liters to ${currentCustomer.name}`);
+    await saveDeliveryRecord(quantity, 'delivered');
+    setDeliveryStatus(prev => ({ ...prev, [currentCustomer.id]: { status: 'delivered', quantity } }));
+    
+    // Auto-navigate to next customer after delivery
+    if (currentIndex < customers.length - 1) {
+      setTimeout(() => setCurrentIndex(currentIndex + 1), 1000);
+    }
+  };
+
+  const handleMissed = async () => {
+    console.log(`Missed delivery for ${currentCustomer.name}`);
+    await saveDeliveryRecord(0, 'missed');
+    setDeliveryStatus(prev => ({ ...prev, [currentCustomer.id]: { status: 'missed' } }));
+    
+    // Auto-navigate to next customer
+    if (currentIndex < customers.length - 1) {
+      setTimeout(() => setCurrentIndex(currentIndex + 1), 1000);
+    }
+  };
+
   const handlePhotoTaken = async (photoData: string, status: 'delivered' | 'missed') => {
     console.log(`Photo taken for ${currentCustomer.name}:`, photoData);
     console.log(`Delivery status: ${status}`);
     
-    // Save delivery record to database
-    await saveDeliveryRecord(photoData, status);
+    // Save delivery record to database with photo
+    try {
+      const deliveryTime = new Date().toLocaleTimeString('en-US', { 
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      const { error } = await supabase
+        .from('delivery_records')
+        .upsert({
+          customer_id: currentCustomer.id,
+          delivery_date: today,
+          status,
+          delivery_time: deliveryTime,
+          photo_url: photoData,
+          delivered_by: 'Delivery Person',
+          notes: status === 'delivered' ? 'Successfully delivered with photo' : 'Delivery missed - photo taken'
+        }, {
+          onConflict: 'customer_id,delivery_date'
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Success",
+        description: `Delivery ${status} with photo recorded successfully`,
+      });
+
+    } catch (error) {
+      console.error('Error saving delivery record:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save delivery record",
+        variant: "destructive",
+      });
+    }
     
-    setDeliveryStatus(prev => ({ ...prev, [currentCustomer.id]: status }));
+    setDeliveryStatus(prev => ({ ...prev, [currentCustomer.id]: { status } }));
     setShowCamera(false);
     
     // Auto-navigate to next customer after delivery
@@ -183,6 +243,8 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
     );
   }
 
+  const customerStatus = deliveryStatus[currentCustomer.id];
+
   return (
     <div className="w-full max-w-2xl mx-auto space-y-4">
       {/* Customer Card */}
@@ -221,38 +283,43 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
               <span className="text-sm">{currentCustomer.address}</span>
             </div>
             <div className="mt-2 text-sm text-gray-600">
-              <span className="font-medium">Daily Quantity:</span> {currentCustomer.quantity} Liter(s)
+              <span className="font-medium">Regular Quantity:</span> {currentCustomer.quantity} Liter(s)
             </div>
           </div>
 
           {/* Delivery Status */}
-          {deliveryStatus[currentCustomer.id] && (
+          {customerStatus && (
             <div className={`p-3 rounded-lg ${
-              deliveryStatus[currentCustomer.id] === 'delivered' 
+              customerStatus.status === 'delivered' 
                 ? 'bg-green-50 border border-green-200' 
                 : 'bg-red-50 border border-red-200'
             }`}>
               <span className={`font-medium ${
-                deliveryStatus[currentCustomer.id] === 'delivered' 
+                customerStatus.status === 'delivered' 
                   ? 'text-green-800' 
                   : 'text-red-800'
               }`}>
-                Status: {deliveryStatus[currentCustomer.id] === 'delivered' ? 'Delivered ✓' : 'Missed ✗'}
+                Status: {customerStatus.status === 'delivered' 
+                  ? `Delivered ✓ ${customerStatus.quantity ? `(${customerStatus.quantity}L)` : ''}` 
+                  : 'Missed ✗'}
               </span>
             </div>
           )}
 
           {/* Action Buttons */}
+          {userRole === 'delivery' && (
+            <DeliveryActionButtons
+              onDelivered={handleDelivered}
+              onMissed={handleMissed}
+              onTakePhoto={() => setShowCamera(true)}
+              defaultQuantity={currentCustomer.quantity}
+              isDelivered={customerStatus?.status === 'delivered'}
+              isMissed={customerStatus?.status === 'missed'}
+            />
+          )}
+
+          {/* View Options */}
           <div className="flex gap-3">
-            {userRole === 'delivery' && (
-              <Button 
-                onClick={() => setShowCamera(true)}
-                className="flex-1"
-              >
-                <Camera className="w-4 h-4 mr-2" />
-                Take Photo
-              </Button>
-            )}
             <Button 
               onClick={() => setShowBilling(true)}
               variant="outline"
