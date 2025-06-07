@@ -20,7 +20,7 @@ const RoleSelector = ({ onRoleSelect }: RoleSelectorProps) => {
     {
       id: 'delivery' as const,
       title: 'Delivery Boy',
-      description: 'Scan QR to mark deliveries',
+      description: 'Mark deliveries as complete',
       icon: Truck,
       color: 'bg-green-500 hover:bg-green-600',
     },

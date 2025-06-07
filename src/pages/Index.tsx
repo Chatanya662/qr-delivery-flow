@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import RoleSelector from '@/components/RoleSelector';
-import QRScanner from '@/components/QRScanner';
+import DeliveryInterface from '@/components/DeliveryInterface';
 import DeliveryHistory from '@/components/DeliveryHistory';
 import OwnerDashboard from '@/components/OwnerDashboard';
 
@@ -17,14 +17,10 @@ const Index = () => {
 
   const handleRoleSelect = (role: UserRole) => {
     setUserRole(role);
-    if (role === 'owner') {
-      setCurrentState('main-interface');
-    } else {
-      setCurrentState('main-interface');
-    }
+    setCurrentState('main-interface');
   };
 
-  const handleScanComplete = (customerId: string, status: string) => {
+  const handleDeliveryComplete = (customerId: string, status: string) => {
     setSelectedCustomerId(customerId);
     setCurrentState('history-view');
     console.log(`Delivery ${status} for customer ${customerId}`);
@@ -68,13 +64,13 @@ const Index = () => {
       <div className="p-4">
         <Button variant="outline" onClick={handleBack} className="mb-4">
           <ArrowLeft className="w-4 h-4 mr-2" />
-          {currentState === 'history-view' ? 'Back to Scanner' : 'Back to Role Selection'}
+          {currentState === 'history-view' ? 'Back to Customer Selection' : 'Back to Role Selection'}
         </Button>
       </div>
 
       <div className="flex items-center justify-center p-4">
         {currentState === 'main-interface' && userRole && (
-          <QRScanner userRole={userRole} onScanComplete={handleScanComplete} />
+          <DeliveryInterface userRole={userRole} onDeliveryComplete={handleDeliveryComplete} />
         )}
 
         {currentState === 'history-view' && selectedCustomerId && userRole && (
