@@ -122,8 +122,8 @@ const DeliveryTracker = ({ customerId, customerName, userRole }: DeliveryTracker
       ['Customer Name', customerName],
       ['Quantity per Day', `${customerQuantity} Liter(s)`],
       ['Price per Liter', `₹${pricePerLiter}`],
-      ['Days Delivered', deliveredDays],
-      ['Days Missed', missedDays],
+      ['Days Delivered', deliveredDays.toString()],
+      ['Days Missed', missedDays.toString()],
       ['Total Amount', `₹${totalAmount}`]
     );
 
