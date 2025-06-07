@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, FileText } from 'lucide-react';
@@ -17,13 +18,13 @@ const Index = () => {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // Mock customers data with quantities
+  // Mock customers data with proper UUID format
   const mockCustomers = [
-    { id: '101', name: 'Rajesh Kumar', address: 'House 45, Sector 12, Green Valley', quantity: 2 },
-    { id: '102', name: 'Priya Sharma', address: 'Flat 23, Block B, Green Valley', quantity: 1 },
-    { id: '103', name: 'Amit Singh', address: 'Villa 78, Rose Garden Colony', quantity: 1.5 },
-    { id: '104', name: 'Sunita Devi', address: 'House 12, Main Street, City Center', quantity: 1 },
-    { id: '105', name: 'Vikram Gupta', address: 'Apt 567, Hill View Apartments', quantity: 2.5 },
+    { id: '550e8400-e29b-41d4-a716-446655440001', name: 'Rajesh Kumar', address: 'House 45, Sector 12, Green Valley', quantity: 2 },
+    { id: '550e8400-e29b-41d4-a716-446655440002', name: 'Priya Sharma', address: 'Flat 23, Block B, Green Valley', quantity: 1 },
+    { id: '550e8400-e29b-41d4-a716-446655440003', name: 'Amit Singh', address: 'Villa 78, Rose Garden Colony', quantity: 1.5 },
+    { id: '550e8400-e29b-41d4-a716-446655440004', name: 'Sunita Devi', address: 'House 12, Main Street, City Center', quantity: 1 },
+    { id: '550e8400-e29b-41d4-a716-446655440005', name: 'Vikram Gupta', address: 'Apt 567, Hill View Apartments', quantity: 2.5 },
   ];
 
   const handleRoleSelect = (role: UserRole) => {
