@@ -1,103 +1,244 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Users, Package, TrendingUp, Plus, Search, Edit, Trash2, BarChart3, Settings } from 'lucide-react';
+import { Users, Package, TrendingUp, Plus, Search, Edit, Trash2, BarChart3, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 import QuantityManager from './QuantityManager';
 import ReportsOverview from './ReportsOverview';
 
 interface Customer {
   id: string;
   name: string;
-  phone: string;
   address: string;
-  status: 'active' | 'inactive';
-  qrCode: string;
   quantity: number;
-  pricePerLiter: number;
 }
 
 const OwnerDashboard = () => {
-  const [customers, setCustomers] = useState<Customer[]>([
-    { id: 'C001', name: 'Rajesh Sharma', phone: '9876543210', address: 'Block A-101, Green Valley', status: 'active', qrCode: 'KC001', quantity: 2, pricePerLiter: 100 },
-    { id: 'C002', name: 'Priya Patel', phone: '9876543211', address: 'Block B-205, Green Valley', status: 'active', qrCode: 'KC002', quantity: 1, pricePerLiter: 100 },
-    { id: 'C003', name: 'Amit Kumar', phone: '9876543212', address: 'Block C-304, Green Valley', status: 'inactive', qrCode: 'KC003', quantity: 1.5, pricePerLiter: 100 },
-  ]);
-
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-  const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', address: '', quantity: 1, pricePerLiter: 100 });
+  const [newCustomer, setNewCustomer] = useState({ name: '', address: '', quantity: 1 });
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
+
+  const fetchCustomers = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('customers')
+        .select('*')
+        .order('name');
+
+      if (error) {
+        console.error('Error fetching customers:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load customers",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data) {
+        setCustomers(data);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Error",
+        description: "Something went wrong while loading customers",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const stats = {
     totalCustomers: customers.length,
-    activeCustomers: customers.filter(c => c.status === 'active').length,
-    todayDeliveries: 25,
-    completedDeliveries: 23,
-    totalRevenue: customers.filter(c => c.status === 'active').reduce((sum, c) => sum + (c.quantity * c.pricePerLiter * 30), 0)
+    activeCustomers: customers.length, // All customers are active in database
+    todayDeliveries: 25, // This would come from delivery_records table
+    completedDeliveries: 23, // This would come from delivery_records table
+    totalRevenue: customers.reduce((sum, c) => sum + (c.quantity * 100 * 30), 0) // Assuming 100 per liter
   };
 
   const filteredCustomers = customers.filter(customer =>
     customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.phone.includes(searchTerm) ||
+    customer.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
     customer.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleAddCustomer = () => {
-    if (newCustomer.name && newCustomer.phone && newCustomer.address) {
-      const id = `C${String(customers.length + 1).padStart(3, '0')}`;
-      const qrCode = `KC${String(customers.length + 1).padStart(3, '0')}`;
-      
-      setCustomers([...customers, {
-        ...newCustomer,
-        id,
-        qrCode,
-        status: 'active'
-      }]);
-      
-      setNewCustomer({ name: '', phone: '', address: '', quantity: 1, pricePerLiter: 100 });
-      setShowAddForm(false);
+  const handleAddCustomer = async () => {
+    if (newCustomer.name && newCustomer.address) {
+      try {
+        const { data, error } = await supabase
+          .from('customers')
+          .insert([{
+            name: newCustomer.name,
+            address: newCustomer.address,
+            quantity: newCustomer.quantity
+          }])
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Error adding customer:', error);
+          toast({
+            title: "Error",
+            description: "Failed to add customer",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (data) {
+          setCustomers([...customers, data]);
+          setNewCustomer({ name: '', address: '', quantity: 1 });
+          setShowAddForm(false);
+          toast({
+            title: "Success",
+            description: "Customer added successfully",
+          });
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        toast({
+          title: "Error",
+          description: "Something went wrong while adding customer",
+          variant: "destructive",
+        });
+      }
     }
   };
 
-  const handleUpdateCustomer = () => {
+  const handleUpdateCustomer = async () => {
     if (editingCustomer) {
+      try {
+        const { error } = await supabase
+          .from('customers')
+          .update({
+            name: editingCustomer.name,
+            address: editingCustomer.address,
+            quantity: editingCustomer.quantity
+          })
+          .eq('id', editingCustomer.id);
+
+        if (error) {
+          console.error('Error updating customer:', error);
+          toast({
+            title: "Error",
+            description: "Failed to update customer",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        setCustomers(customers.map(c => 
+          c.id === editingCustomer.id ? editingCustomer : c
+        ));
+        setEditingCustomer(null);
+        toast({
+          title: "Success",
+          description: "Customer updated successfully",
+        });
+      } catch (error) {
+        console.error('Error:', error);
+        toast({
+          title: "Error",
+          description: "Something went wrong while updating customer",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handleDeleteCustomer = async (customerId: string) => {
+    if (confirm('Are you sure you want to delete this customer? This will also delete all their delivery records.')) {
+      try {
+        const { error } = await supabase
+          .from('customers')
+          .delete()
+          .eq('id', customerId);
+
+        if (error) {
+          console.error('Error deleting customer:', error);
+          toast({
+            title: "Error",
+            description: "Failed to delete customer",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        setCustomers(customers.filter(c => c.id !== customerId));
+        toast({
+          title: "Success",
+          description: "Customer deleted successfully",
+        });
+      } catch (error) {
+        console.error('Error:', error);
+        toast({
+          title: "Error",
+          description: "Something went wrong while deleting customer",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handleUpdateQuantity = async (customerId: string, newQuantity: number) => {
+    try {
+      const { error } = await supabase
+        .from('customers')
+        .update({ quantity: newQuantity })
+        .eq('id', customerId);
+
+      if (error) {
+        console.error('Error updating quantity:', error);
+        toast({
+          title: "Error",
+          description: "Failed to update quantity",
+          variant: "destructive",
+        });
+        return;
+      }
+
       setCustomers(customers.map(c => 
-        c.id === editingCustomer.id ? editingCustomer : c
+        c.id === customerId ? { ...c, quantity: newQuantity } : c
       ));
-      setEditingCustomer(null);
+      toast({
+        title: "Success",
+        description: "Quantity updated successfully",
+      });
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Error",
+        description: "Something went wrong while updating quantity",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleDeleteCustomer = (customerId: string) => {
-    if (confirm('Are you sure you want to delete this customer?')) {
-      setCustomers(customers.filter(c => c.id !== customerId));
-    }
-  };
-
-  const handleUpdateQuantity = (customerId: string, newQuantity: number) => {
-    setCustomers(customers.map(c => 
-      c.id === customerId ? { ...c, quantity: newQuantity } : c
-    ));
-  };
-
-  const handleUpdatePrice = (customerId: string, newPrice: number) => {
-    setCustomers(customers.map(c => 
-      c.id === customerId ? { ...c, pricePerLiter: newPrice } : c
-    ));
-  };
-
-  const toggleCustomerStatus = (customerId: string) => {
-    setCustomers(customers.map(c => 
-      c.id === customerId 
-        ? { ...c, status: c.status === 'active' ? 'inactive' : 'active' }
-        : c
-    ));
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-8 h-8 animate-spin text-gray-500" />
+        <span className="ml-2 text-gray-500">Loading dashboard...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
@@ -194,7 +335,7 @@ const OwnerDashboard = () => {
                 <div className="relative">
                   <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                   <Input
-                    placeholder="Search by name, phone, or customer ID..."
+                    placeholder="Search by name, address, or customer ID..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
@@ -205,16 +346,11 @@ const OwnerDashboard = () => {
                 {showAddForm && (
                   <div className="p-6 border rounded-lg bg-blue-50 border-blue-200">
                     <h3 className="font-semibold mb-4 text-blue-800">Add New Customer</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <Input
                         placeholder="Customer Name"
                         value={newCustomer.name}
                         onChange={(e) => setNewCustomer({...newCustomer, name: e.target.value})}
-                      />
-                      <Input
-                        placeholder="Phone Number"
-                        value={newCustomer.phone}
-                        onChange={(e) => setNewCustomer({...newCustomer, phone: e.target.value})}
                       />
                       <Input
                         placeholder="Full Address"
@@ -227,13 +363,6 @@ const OwnerDashboard = () => {
                         value={newCustomer.quantity}
                         onChange={(e) => setNewCustomer({...newCustomer, quantity: Number(e.target.value)})}
                         step="0.5"
-                        min="0"
-                      />
-                      <Input
-                        type="number"
-                        placeholder="Price/L (₹)"
-                        value={newCustomer.pricePerLiter}
-                        onChange={(e) => setNewCustomer({...newCustomer, pricePerLiter: Number(e.target.value)})}
                         min="0"
                       />
                     </div>
@@ -263,37 +392,22 @@ const OwnerDashboard = () => {
                           <div className="flex-1">
                             <div className="flex items-center gap-3 mb-2">
                               <h3 className="font-semibold text-lg">{customer.name}</h3>
-                              <Badge 
-                                className={customer.status === 'active' 
-                                  ? 'bg-green-100 text-green-800 hover:bg-green-100' 
-                                  : 'bg-red-100 text-red-800 hover:bg-red-100'
-                                }
-                              >
-                                {customer.status}
+                              <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+                                Active
                               </Badge>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 text-sm text-gray-600">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600">
                               <p><span className="font-medium">ID:</span> {customer.id}</p>
-                              <p><span className="font-medium">Phone:</span> {customer.phone}</p>
-                              <p><span className="font-medium">QR:</span> {customer.qrCode}</p>
-                              <p><span className="font-medium">Daily:</span> {customer.quantity}L @ ₹{customer.pricePerLiter}</p>
+                              <p><span className="font-medium">Daily Quantity:</span> {customer.quantity}L</p>
                             </div>
                             <p className="text-sm text-gray-600 mt-1">
                               <span className="font-medium">Address:</span> {customer.address}
                             </p>
                             <p className="text-sm font-medium text-green-600 mt-1">
-                              Monthly Revenue: ₹{(customer.quantity * customer.pricePerLiter * 30).toLocaleString()}
+                              Monthly Revenue: ₹{(customer.quantity * 100 * 30).toLocaleString()}
                             </p>
                           </div>
                           <div className="flex gap-2 ml-4">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => toggleCustomerStatus(customer.id)}
-                              className={customer.status === 'active' ? 'text-red-600 hover:text-red-700' : 'text-green-600 hover:text-green-700'}
-                            >
-                              {customer.status === 'active' ? 'Deactivate' : 'Activate'}
-                            </Button>
                             <Button
                               variant="outline"
                               size="sm"
@@ -323,7 +437,7 @@ const OwnerDashboard = () => {
             <QuantityManager 
               customers={customers}
               onUpdateQuantity={handleUpdateQuantity}
-              onUpdatePrice={handleUpdatePrice}
+              onUpdatePrice={() => {}} // Price is fixed at 100 per liter
             />
           </TabsContent>
 
@@ -367,14 +481,6 @@ const OwnerDashboard = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Phone</label>
-                  <Input
-                    value={editingCustomer.phone}
-                    onChange={(e) => setEditingCustomer({...editingCustomer, phone: e.target.value})}
-                    placeholder="Phone Number"
-                  />
-                </div>
-                <div>
                   <label className="text-sm font-medium text-gray-700">Address</label>
                   <Input
                     value={editingCustomer.address}
@@ -382,26 +488,15 @@ const OwnerDashboard = () => {
                     placeholder="Full Address"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-sm font-medium text-gray-700">Quantity (L)</label>
-                    <Input
-                      type="number"
-                      value={editingCustomer.quantity}
-                      onChange={(e) => setEditingCustomer({...editingCustomer, quantity: Number(e.target.value)})}
-                      step="0.5"
-                      min="0"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-700">Price/L (₹)</label>
-                    <Input
-                      type="number"
-                      value={editingCustomer.pricePerLiter}
-                      onChange={(e) => setEditingCustomer({...editingCustomer, pricePerLiter: Number(e.target.value)})}
-                      min="0"
-                    />
-                  </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700">Quantity (L)</label>
+                  <Input
+                    type="number"
+                    value={editingCustomer.quantity}
+                    onChange={(e) => setEditingCustomer({...editingCustomer, quantity: Number(e.target.value)})}
+                    step="0.5"
+                    min="0"
+                  />
                 </div>
                 <div className="flex gap-3 pt-4">
                   <Button onClick={handleUpdateCustomer} className="flex-1">

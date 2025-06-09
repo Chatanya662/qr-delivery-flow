@@ -18,9 +18,6 @@ const Index = () => {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // Remove mock customers - now fetched from database
-  const mockCustomers: never[] = [];
-
   const handleRoleSelect = (role: UserRole) => {
     setUserRole(role);
     if (role === 'delivery') {
@@ -60,12 +57,6 @@ const Index = () => {
   if (currentState === 'role-selection') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
-        <div className="absolute top-4 right-4">
-          <Button onClick={() => navigate('/daily-report')} variant="outline">
-            <FileText className="w-4 h-4 mr-2" />
-            Daily Reports
-          </Button>
-        </div>
         <RoleSelector onRoleSelect={handleRoleSelect} />
       </div>
     );
@@ -101,19 +92,14 @@ const Index = () => {
             <ArrowLeft className="w-4 h-4 mr-2" />
             {currentState === 'history-view' ? 'Back to Delivery' : 'Back to Role Selection'}
           </Button>
-          {(userRole === 'delivery' || userRole === 'customer') && (
-            <Button onClick={() => navigate('/daily-report')} variant="outline">
-              <FileText className="w-4 h-4 mr-2" />
-              Daily Reports
-            </Button>
-          )}
+          {/* Daily Reports button removed for customer and delivery roles */}
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto p-4">
         {currentState === 'delivery-navigation' && userRole === 'delivery' && (
           <DeliveryNavigation 
-            customers={mockCustomers}
+            customers={[]} // Now fetched from database in component
             userRole={userRole}
           />
         )}
