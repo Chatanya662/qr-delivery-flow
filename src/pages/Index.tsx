@@ -8,6 +8,7 @@ import DeliveryInterface from '@/components/DeliveryInterface';
 import DeliveryHistory from '@/components/DeliveryHistory';
 import OwnerDashboard from '@/components/OwnerDashboard';
 import DeliveryNavigation from '@/components/DeliveryNavigation';
+import CustomerInterface from '@/components/CustomerInterface';
 
 type UserRole = 'customer' | 'delivery' | 'owner';
 type AppState = 'role-selection' | 'main-interface' | 'history-view' | 'delivery-navigation';
@@ -62,6 +63,10 @@ const Index = () => {
     );
   }
 
+  if (userRole === 'customer') {
+    return <CustomerInterface />;
+  }
+
   if (userRole === 'owner') {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -92,19 +97,18 @@ const Index = () => {
             <ArrowLeft className="w-4 h-4 mr-2" />
             {currentState === 'history-view' ? 'Back to Delivery' : 'Back to Role Selection'}
           </Button>
-          {/* Daily Reports button removed for customer and delivery roles */}
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto p-4">
         {currentState === 'delivery-navigation' && userRole === 'delivery' && (
           <DeliveryNavigation 
-            customers={[]} // Now fetched from database in component
+            customers={[]}
             userRole={userRole}
           />
         )}
 
-        {currentState === 'main-interface' && userRole && userRole !== 'delivery' && (
+        {currentState === 'main-interface' && userRole && userRole !== 'delivery' && userRole !== 'customer' && (
           <div className="flex justify-center">
             <DeliveryInterface userRole={userRole} onDeliveryComplete={handleDeliveryComplete} />
           </div>

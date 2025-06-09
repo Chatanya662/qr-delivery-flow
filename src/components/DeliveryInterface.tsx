@@ -7,7 +7,7 @@ import CustomerSelector from './CustomerSelector';
 import DeliveryHistory from './DeliveryHistory';
 
 interface DeliveryInterfaceProps {
-  userRole: 'customer' | 'delivery' | 'owner';
+  userRole: 'delivery' | 'owner';
   onDeliveryComplete: (customerId: string, status: string) => void;
 }
 
@@ -21,28 +21,6 @@ const DeliveryInterface = ({ userRole, onDeliveryComplete }: DeliveryInterfacePr
   const handleBack = () => {
     setSelectedCustomerId(null);
   };
-
-  if (userRole === 'customer') {
-    if (selectedCustomerId) {
-      return (
-        <div className="w-full max-w-6xl mx-auto">
-          <div className="mb-4">
-            <Button variant="outline" onClick={handleBack}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Customer Selection
-            </Button>
-          </div>
-          <DeliveryHistory 
-            customerId={selectedCustomerId} 
-            userRole={userRole}
-            onStatusChange={() => {}}
-          />
-        </div>
-      );
-    }
-
-    return <CustomerSelector onCustomerSelect={handleCustomerSelect} />;
-  }
 
   // For delivery and owner roles, show a different interface
   return (
