@@ -88,8 +88,9 @@ const CameraCapture = ({ isOpen, onClose, onPhotoTaken, deliveryDate, customerNa
       const response = await fetch(photoData);
       const blob = await response.blob();
       
-      // Create unique filename
-      const fileName = `delivery-${customerId}-${deliveryDate}-${Date.now()}.jpg`;
+      // Create unique filename with timestamp
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const fileName = `delivery-${customerId}-${deliveryDate}-${timestamp}.jpg`;
       
       // Upload to Supabase storage
       const { data, error } = await supabase.storage
@@ -101,6 +102,11 @@ const CameraCapture = ({ isOpen, onClose, onPhotoTaken, deliveryDate, customerNa
 
       if (error) {
         console.error('Upload error:', error);
+        toast({
+          title: "Upload Failed",
+          description: "Failed to upload photo to storage",
+          variant: "destructive",
+        });
         return null;
       }
 
@@ -109,44 +115,79 @@ const CameraCapture = ({ isOpen, onClose, onPhotoTaken, deliveryDate, customerNa
         .from('delivery-photos')
         .getPublicUrl(fileName);
 
+      console.log('Photo uploaded successfully:', urlData.publicUrl);
       return urlData.publicUrl;
     } catch (error) {
       console.error('Error uploading photo:', error);
+      toast({
+        title: "Upload Error",
+        description: "Something went wrong while uploading the photo",
+        variant: "destructive",
+      });
       return null;
     }
   };
 
   const saveDeliveryRecord = async (status: 'delivered' | 'missed', photoUrl?: string) => {
-    if (!customerId) return;
+    if (!customerId) {
+      console.error('No customer ID provided');
+      return;
+    }
 
     try {
+      const deliveryTime = new Date().toLocaleTimeString('en-US', { 
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      console.log('Saving delivery record:', {
+        customer_id: customerId,
+        delivery_date: deliveryDate,
+        status,
+        delivery_time: deliveryTime,
+        photo_url: photoUrl,
+        delivered_by: 'Delivery Person',
+        notes: status === 'delivered' ? 'Successfully delivered with photo' : 'Delivery missed - photo taken'
+      });
+
       const { error } = await supabase
         .from('delivery_records')
         .upsert({
           customer_id: customerId,
           delivery_date: deliveryDate,
           status,
-          delivery_time: new Date().toTimeString().slice(0, 8),
+          delivery_time: deliveryTime,
           photo_url: photoUrl,
           delivered_by: 'Delivery Person',
-          notes: status === 'delivered' ? 'Successfully delivered' : 'Delivery missed'
+          notes: status === 'delivered' ? 'Successfully delivered with photo' : 'Delivery missed - photo taken',
+          quantity_delivered: status === 'delivered' ? 1 : 0
+        }, {
+          onConflict: 'customer_id,delivery_date'
         });
 
       if (error) {
         console.error('Error saving delivery record:', error);
         toast({
-          title: "Error",
-          description: "Failed to save delivery record",
+          title: "Database Error",
+          description: "Failed to save delivery record to database",
           variant: "destructive",
         });
-      } else {
-        toast({
-          title: "Success",
-          description: `Delivery ${status} recorded successfully`,
-        });
+        return;
       }
+
+      toast({
+        title: "Success",
+        description: `Delivery ${status} recorded successfully with photo`,
+      });
+
     } catch (error) {
       console.error('Database error:', error);
+      toast({
+        title: "Error",
+        description: "Something went wrong while saving to database",
+        variant: "destructive",
+      });
     }
   };
 
@@ -158,21 +199,18 @@ const CameraCapture = ({ isOpen, onClose, onPhotoTaken, deliveryDate, customerNa
     try {
       let photoUrl = null;
       
-      if (status === 'delivered') {
-        photoUrl = await uploadPhotoToSupabase(capturedPhoto);
-        if (!photoUrl) {
-          toast({
-            title: "Upload Failed",
-            description: "Failed to upload photo. Please try again.",
-            variant: "destructive",
-          });
-          setIsUploading(false);
-          return;
-        }
+      // Always upload photo for both delivered and missed deliveries
+      photoUrl = await uploadPhotoToSupabase(capturedPhoto);
+      if (!photoUrl) {
+        setIsUploading(false);
+        return;
       }
 
+      // Save delivery record with photo URL
       await saveDeliveryRecord(status, photoUrl);
-      onPhotoTaken(capturedPhoto, status);
+      
+      // Call the callback with the photo URL instead of base64 data
+      onPhotoTaken(photoUrl, status);
       
     } catch (error) {
       console.error('Error handling delivery status:', error);
