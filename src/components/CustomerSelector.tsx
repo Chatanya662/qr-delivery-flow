@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { User, MapPin, Eye, Loader2 } from 'lucide-react';
+import { User, MapPin, Eye, Loader2, Phone } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import DeliveryPhotos from './DeliveryPhotos';
@@ -12,6 +12,7 @@ interface Customer {
   name: string;
   address: string;
   quantity: number;
+  contact_number?: string;
 }
 
 interface CustomerSelectorProps {
@@ -27,6 +28,24 @@ const CustomerSelector = ({ onCustomerSelect }: CustomerSelectorProps) => {
 
   useEffect(() => {
     fetchCustomers();
+
+    // Set up real-time subscription for customer updates
+    const subscription = supabase
+      .channel('customers-selector-updates')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setCustomers(prev => [...prev, payload.new as Customer]);
+        } else if (payload.eventType === 'UPDATE') {
+          setCustomers(prev => prev.map(c => c.id === payload.new.id ? payload.new as Customer : c));
+        } else if (payload.eventType === 'DELETE') {
+          setCustomers(prev => prev.filter(c => c.id !== payload.old.id));
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
   }, []);
 
   const fetchCustomers = async () => {
@@ -102,6 +121,12 @@ const CustomerSelector = ({ onCustomerSelect }: CustomerSelectorProps) => {
                 <MapPin className="w-4 h-4 mt-1" />
                 <span className="text-sm">{customer.address}</span>
               </div>
+              {customer.contact_number && (
+                <div className="flex items-center gap-2 text-gray-600">
+                  <Phone className="w-4 h-4" />
+                  <span className="text-sm">{customer.contact_number}</span>
+                </div>
+              )}
               <div className="text-sm text-gray-600">
                 <span className="font-medium">Regular Quantity:</span> {customer.quantity} Liter(s)
               </div>

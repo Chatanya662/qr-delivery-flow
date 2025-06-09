@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, ArrowRight, User, MapPin, Eye, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, User, MapPin, Eye, Loader2, Phone } from 'lucide-react';
 import CameraCapture from './CameraCapture';
 import CustomerBilling from './CustomerBilling';
 import AttendanceStats from './AttendanceStats';
@@ -15,6 +14,7 @@ interface Customer {
   name: string;
   address: string;
   quantity: number;
+  contact_number?: string;
 }
 
 interface DeliveryNavigationProps {
@@ -41,6 +41,18 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
       setCustomers(propCustomers);
     }
     fetchTodayDeliveries();
+
+    // Set up real-time subscription for customer updates
+    const subscription = supabase
+      .channel('customers-delivery-updates')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'customers' }, (payload) => {
+        setCustomers(prev => prev.map(c => c.id === payload.new.id ? payload.new as Customer : c));
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
   }, [propCustomers]);
 
   const fetchCustomers = async () => {
@@ -147,6 +159,32 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
       // Update local state
       setDeliveryStatus(prev => ({ ...prev, [currentCustomer.id]: { status, quantity } }));
 
+      // If quantity delivered is different from regular quantity, update customer's regular quantity
+      if (status === 'delivered' && quantity !== currentCustomer.quantity) {
+        const shouldUpdateRegular = confirm(`Would you like to update ${currentCustomer.name}'s regular quantity from ${currentCustomer.quantity}L to ${quantity}L for future deliveries?`);
+        
+        if (shouldUpdateRegular) {
+          const { error: updateError } = await supabase
+            .from('customers')
+            .update({ quantity })
+            .eq('id', currentCustomer.id);
+
+          if (updateError) {
+            console.error('Error updating customer quantity:', updateError);
+            toast({
+              title: "Warning",
+              description: "Delivery recorded but failed to update regular quantity",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Updated",
+              description: `Regular quantity updated to ${quantity}L`,
+            });
+          }
+        }
+      }
+
     } catch (error) {
       console.error('Error saving delivery record:', error);
       toast({
@@ -161,7 +199,6 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
     console.log(`Delivered ${quantity} liters to ${currentCustomer.name}`);
     await saveDeliveryRecord(quantity, 'delivered');
     
-    // Auto-navigate to next customer after delivery
     if (currentIndex < customers.length - 1) {
       setTimeout(() => setCurrentIndex(currentIndex + 1), 1000);
     }
@@ -171,7 +208,6 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
     console.log(`Missed delivery for ${currentCustomer.name}`);
     await saveDeliveryRecord(0, 'missed');
     
-    // Auto-navigate to next customer
     if (currentIndex < customers.length - 1) {
       setTimeout(() => setCurrentIndex(currentIndex + 1), 1000);
     }
@@ -181,7 +217,6 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
     console.log(`Photo taken for ${currentCustomer.name}:`, photoData);
     console.log(`Delivery status: ${status}`);
     
-    // Save delivery record to database with photo
     try {
       const deliveryTime = new Date().toLocaleTimeString('en-US', { 
         hour12: false,
@@ -231,7 +266,6 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
     }));
     setShowCamera(false);
     
-    // Auto-navigate to next customer after delivery
     if (currentIndex < customers.length - 1) {
       setTimeout(() => setCurrentIndex(currentIndex + 1), 1000);
     }
@@ -243,8 +277,7 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
     const year = currentDate.getFullYear();
     const daysInMonth = new Date(year, currentDate.getMonth() + 1, 0).getDate();
     
-    // Mock delivery data
-    const deliveredDays = Math.floor(Math.random() * 25) + 20; // 20-25 days
+    const deliveredDays = Math.floor(Math.random() * 25) + 20;
     const missedDays = daysInMonth - deliveredDays;
     const pricePerLiter = 100;
     const totalAmount = deliveredDays * pricePerLiter * currentCustomer.quantity;
@@ -319,6 +352,12 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
               <MapPin className="w-4 h-4" />
               <span className="text-sm">{currentCustomer.address}</span>
             </div>
+            {currentCustomer.contact_number && (
+              <div className="flex items-center gap-2 mt-2 text-gray-600">
+                <Phone className="w-4 h-4" />
+                <span className="text-sm">{currentCustomer.contact_number}</span>
+              </div>
+            )}
             <div className="mt-2 text-sm text-gray-600">
               <span className="font-medium">Regular Quantity:</span> {currentCustomer.quantity} Liter(s)
             </div>

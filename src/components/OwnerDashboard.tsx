@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Users, Package, TrendingUp, Plus, Search, Edit, Trash2, BarChart3, Loader2 } from 'lucide-react';
+import { Users, Package, TrendingUp, Plus, Search, Edit, Trash2, BarChart3, Loader2, Phone } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import QuantityManager from './QuantityManager';
@@ -17,6 +16,7 @@ interface Customer {
   name: string;
   address: string;
   quantity: number;
+  contact_number?: string;
 }
 
 const OwnerDashboard = () => {
@@ -25,11 +25,29 @@ const OwnerDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-  const [newCustomer, setNewCustomer] = useState({ name: '', address: '', quantity: 1 });
+  const [newCustomer, setNewCustomer] = useState({ name: '', address: '', quantity: 1, contact_number: '' });
   const { toast } = useToast();
 
   useEffect(() => {
     fetchCustomers();
+    
+    // Set up real-time subscription for customer updates
+    const subscription = supabase
+      .channel('customers-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setCustomers(prev => [...prev, payload.new as Customer]);
+        } else if (payload.eventType === 'UPDATE') {
+          setCustomers(prev => prev.map(c => c.id === payload.new.id ? payload.new as Customer : c));
+        } else if (payload.eventType === 'DELETE') {
+          setCustomers(prev => prev.filter(c => c.id !== payload.old.id));
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
   }, []);
 
   const fetchCustomers = async () => {
@@ -76,7 +94,8 @@ const OwnerDashboard = () => {
   const filteredCustomers = customers.filter(customer =>
     customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     customer.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.id.toLowerCase().includes(searchTerm.toLowerCase())
+    customer.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (customer.contact_number && customer.contact_number.includes(searchTerm))
   );
 
   const handleAddCustomer = async () => {
@@ -87,7 +106,8 @@ const OwnerDashboard = () => {
           .insert([{
             name: newCustomer.name,
             address: newCustomer.address,
-            quantity: newCustomer.quantity
+            quantity: newCustomer.quantity,
+            contact_number: newCustomer.contact_number || null
           }])
           .select()
           .single();
@@ -103,8 +123,7 @@ const OwnerDashboard = () => {
         }
 
         if (data) {
-          setCustomers([...customers, data]);
-          setNewCustomer({ name: '', address: '', quantity: 1 });
+          setNewCustomer({ name: '', address: '', quantity: 1, contact_number: '' });
           setShowAddForm(false);
           toast({
             title: "Success",
@@ -130,7 +149,8 @@ const OwnerDashboard = () => {
           .update({
             name: editingCustomer.name,
             address: editingCustomer.address,
-            quantity: editingCustomer.quantity
+            quantity: editingCustomer.quantity,
+            contact_number: editingCustomer.contact_number || null
           })
           .eq('id', editingCustomer.id);
 
@@ -144,9 +164,6 @@ const OwnerDashboard = () => {
           return;
         }
 
-        setCustomers(customers.map(c => 
-          c.id === editingCustomer.id ? editingCustomer : c
-        ));
         setEditingCustomer(null);
         toast({
           title: "Success",
@@ -181,7 +198,6 @@ const OwnerDashboard = () => {
           return;
         }
 
-        setCustomers(customers.filter(c => c.id !== customerId));
         toast({
           title: "Success",
           description: "Customer deleted successfully",
@@ -214,9 +230,6 @@ const OwnerDashboard = () => {
         return;
       }
 
-      setCustomers(customers.map(c => 
-        c.id === customerId ? { ...c, quantity: newQuantity } : c
-      ));
       toast({
         title: "Success",
         description: "Quantity updated successfully",
@@ -335,7 +348,7 @@ const OwnerDashboard = () => {
                 <div className="relative">
                   <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                   <Input
-                    placeholder="Search by name, address, or customer ID..."
+                    placeholder="Search by name, address, contact number, or customer ID..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
@@ -346,11 +359,16 @@ const OwnerDashboard = () => {
                 {showAddForm && (
                   <div className="p-6 border rounded-lg bg-blue-50 border-blue-200">
                     <h3 className="font-semibold mb-4 text-blue-800">Add New Customer</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                       <Input
                         placeholder="Customer Name"
                         value={newCustomer.name}
                         onChange={(e) => setNewCustomer({...newCustomer, name: e.target.value})}
+                      />
+                      <Input
+                        placeholder="Contact Number"
+                        value={newCustomer.contact_number}
+                        onChange={(e) => setNewCustomer({...newCustomer, contact_number: e.target.value})}
                       />
                       <Input
                         placeholder="Full Address"
@@ -396,9 +414,15 @@ const OwnerDashboard = () => {
                                 Active
                               </Badge>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-gray-600">
                               <p><span className="font-medium">ID:</span> {customer.id}</p>
                               <p><span className="font-medium">Daily Quantity:</span> {customer.quantity}L</p>
+                              {customer.contact_number && (
+                                <p className="flex items-center gap-1">
+                                  <Phone className="w-3 h-3" />
+                                  <span className="font-medium">Contact:</span> {customer.contact_number}
+                                </p>
+                              )}
                             </div>
                             <p className="text-sm text-gray-600 mt-1">
                               <span className="font-medium">Address:</span> {customer.address}
@@ -437,7 +461,7 @@ const OwnerDashboard = () => {
             <QuantityManager 
               customers={customers}
               onUpdateQuantity={handleUpdateQuantity}
-              onUpdatePrice={() => {}} // Price is fixed at 100 per liter
+              onUpdatePrice={() => {}}
             />
           </TabsContent>
 
@@ -478,6 +502,14 @@ const OwnerDashboard = () => {
                     value={editingCustomer.name}
                     onChange={(e) => setEditingCustomer({...editingCustomer, name: e.target.value})}
                     placeholder="Customer Name"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700">Contact Number</label>
+                  <Input
+                    value={editingCustomer.contact_number || ''}
+                    onChange={(e) => setEditingCustomer({...editingCustomer, contact_number: e.target.value})}
+                    placeholder="Contact Number"
                   />
                 </div>
                 <div>

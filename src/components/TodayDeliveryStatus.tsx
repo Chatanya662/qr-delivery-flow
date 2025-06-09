@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +23,31 @@ const TodayDeliveryStatus = ({ customerId, customerName }: TodayDeliveryStatusPr
 
   useEffect(() => {
     fetchTodayDelivery();
+
+    // Set up real-time subscription for delivery record updates
+    const subscription = supabase
+      .channel('delivery-records-updates')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'delivery_records',
+        filter: `customer_id=eq.${customerId}`
+      }, (payload) => {
+        const today = new Date().toISOString().split('T')[0];
+        if (payload.new && payload.new.delivery_date === today) {
+          setTodayDelivery({
+            status: payload.new.status as 'delivered' | 'missed',
+            quantity_delivered: payload.new.quantity_delivered,
+            delivery_time: payload.new.delivery_time || '',
+            notes: payload.new.notes || ''
+          });
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
   }, [customerId]);
 
   const fetchTodayDelivery = async () => {
