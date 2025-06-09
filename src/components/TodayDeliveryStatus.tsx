@@ -33,13 +33,15 @@ const TodayDeliveryStatus = ({ customerId, customerName }: TodayDeliveryStatusPr
         table: 'delivery_records',
         filter: `customer_id=eq.${customerId}`
       }, (payload) => {
+        console.log('Real-time delivery update:', payload);
         const today = new Date().toISOString().split('T')[0];
-        if (payload.new && payload.new.delivery_date === today) {
+        if (payload.new && (payload.new as any).delivery_date === today) {
+          const newRecord = payload.new as any;
           setTodayDelivery({
-            status: payload.new.status as 'delivered' | 'missed',
-            quantity_delivered: payload.new.quantity_delivered,
-            delivery_time: payload.new.delivery_time || '',
-            notes: payload.new.notes || ''
+            status: newRecord.status as 'delivered' | 'missed',
+            quantity_delivered: newRecord.quantity_delivered,
+            delivery_time: newRecord.delivery_time || '',
+            notes: newRecord.notes || ''
           });
         }
       })
