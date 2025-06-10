@@ -15,6 +15,16 @@ interface Customer {
   address: string;
   quantity: number;
   contact_number?: string;
+  profile_id?: string;
+}
+
+interface Profile {
+  id: string;
+  email: string;
+  full_name: string | null;
+  contact_number: string | null;
+  address: string | null;
+  role: string;
 }
 
 interface CustomerDashboardProps {
@@ -24,44 +34,53 @@ interface CustomerDashboardProps {
 
 const CustomerDashboard = ({ user, onSignOut }: CustomerDashboardProps) => {
   const [customerData, setCustomerData] = useState<Customer | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchCustomerData();
-  }, [user.email]);
+    fetchUserData();
+  }, [user.id]);
 
-  const fetchCustomerData = async () => {
+  const fetchUserData = async () => {
     try {
       setLoading(true);
       
-      // For demo purposes, we'll match customer by email domain or use a default customer
-      // In a real app, you'd have a proper user-customer relationship
-      const { data, error } = await supabase
-        .from('customers')
+      // First, fetch the user's profile
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
         .select('*')
-        .limit(1)
+        .eq('id', user.id)
         .single();
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching customer data:', error);
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
         toast({
           title: "Error",
-          description: "Failed to load customer data",
+          description: "Failed to load profile data",
           variant: "destructive",
         });
         return;
       }
 
-      if (data) {
-        setCustomerData(data);
+      setProfile(profileData);
+
+      // Then, try to find a customer record linked to this profile
+      const { data: customerData, error: customerError } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('profile_id', user.id)
+        .maybeSingle();
+
+      if (customerError && customerError.code !== 'PGRST116') {
+        console.error('Error fetching customer data:', customerError);
+      }
+
+      if (customerData) {
+        setCustomerData(customerData);
       } else {
-        // If no customer data found, show a message
-        toast({
-          title: "No Customer Data",
-          description: "Please contact the owner to set up your customer profile",
-          variant: "destructive",
-        });
+        // If no customer record exists, show profile info instead
+        console.log('No customer record found for this user');
       }
     } catch (error) {
       console.error('Error:', error);
@@ -72,23 +91,6 @@ const CustomerDashboard = ({ user, onSignOut }: CustomerDashboardProps) => {
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleSignOut = async () => {
-    try {
-      await supabase.auth.signOut();
-      onSignOut();
-      toast({
-        title: "Success",
-        description: "Successfully signed out",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to sign out",
-        variant: "destructive",
-      });
     }
   };
 
@@ -112,10 +114,10 @@ const CustomerDashboard = ({ user, onSignOut }: CustomerDashboardProps) => {
             <User className="w-6 h-6 text-blue-500" />
             <div>
               <h1 className="font-semibold">Welcome back!</h1>
-              <p className="text-sm text-gray-600">{user.email}</p>
+              <p className="text-sm text-gray-600">{profile?.full_name || user.email}</p>
             </div>
           </div>
-          <Button variant="outline" onClick={handleSignOut}>
+          <Button variant="outline" onClick={onSignOut}>
             <LogOut className="w-4 h-4 mr-2" />
             Sign Out
           </Button>
@@ -183,12 +185,27 @@ const CustomerDashboard = ({ user, onSignOut }: CustomerDashboardProps) => {
           <Card>
             <CardContent className="text-center py-12">
               <User className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-              <h2 className="text-xl font-semibold mb-2">No Customer Profile Found</h2>
-              <p className="text-gray-600 mb-4">
-                It looks like your customer profile hasn't been set up yet.
-              </p>
+              <h2 className="text-xl font-semibold mb-2">Customer Profile</h2>
+              <div className="space-y-2 mb-4">
+                <p className="text-gray-600">
+                  <strong>Name:</strong> {profile?.full_name || 'Not provided'}
+                </p>
+                <p className="text-gray-600">
+                  <strong>Email:</strong> {profile?.email}
+                </p>
+                {profile?.contact_number && (
+                  <p className="text-gray-600">
+                    <strong>Contact:</strong> {profile.contact_number}
+                  </p>
+                )}
+                {profile?.address && (
+                  <p className="text-gray-600">
+                    <strong>Address:</strong> {profile.address}
+                  </p>
+                )}
+              </div>
               <p className="text-sm text-gray-500">
-                Please contact KC Farms to set up your delivery profile and start receiving fresh milk daily!
+                Your delivery profile hasn't been set up yet. Please contact KC Farms to link your account with delivery services.
               </p>
             </CardContent>
           </Card>

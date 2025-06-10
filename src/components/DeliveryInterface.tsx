@@ -1,47 +1,69 @@
 
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Truck } from 'lucide-react';
-import CustomerSelector from './CustomerSelector';
-import DeliveryHistory from './DeliveryHistory';
+import React, { useState, useEffect } from 'react';
+import UnifiedAuth from './UnifiedAuth';
+import RoleDashboard from './RoleDashboard';
+import { supabase } from '@/integrations/supabase/client';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface DeliveryInterfaceProps {
-  userRole: 'delivery' | 'owner';
-  onDeliveryComplete: (customerId: string, status: string) => void;
+  onBack: () => void;
 }
 
-const DeliveryInterface = ({ userRole, onDeliveryComplete }: DeliveryInterfaceProps) => {
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+const DeliveryInterface = ({ onBack }: DeliveryInterfaceProps) => {
+  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const handleCustomerSelect = (customerId: string) => {
-    setSelectedCustomerId(customerId);
+  useEffect(() => {
+    // Check current session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleAuthSuccess = (authenticatedUser: SupabaseUser) => {
+    setUser(authenticatedUser);
   };
 
-  const handleBack = () => {
-    setSelectedCustomerId(null);
+  const handleSignOut = () => {
+    setUser(null);
   };
 
-  // For delivery and owner roles, show a different interface
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <UnifiedAuth 
+        userRole="delivery" 
+        onAuthSuccess={handleAuthSuccess} 
+        onBack={onBack}
+      />
+    );
+  }
+
   return (
-    <div className="w-full max-w-2xl mx-auto">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Truck className="w-6 h-6" />
-            {userRole === 'delivery' ? 'Delivery Dashboard' : 'Owner Dashboard'}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-gray-600">
-            {userRole === 'delivery' 
-              ? 'Use the delivery navigation to manage your deliveries.'
-              : 'Access the owner dashboard to manage customers and view reports.'
-            }
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+    <RoleDashboard 
+      user={user} 
+      userRole="delivery" 
+      onSignOut={handleSignOut} 
+    />
   );
 };
 

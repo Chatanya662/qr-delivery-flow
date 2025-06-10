@@ -5,11 +5,11 @@ import RoleDashboard from './RoleDashboard';
 import { supabase } from '@/integrations/supabase/client';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
-interface CustomerInterfaceProps {
+interface OwnerInterfaceProps {
   onBack: () => void;
 }
 
-const CustomerInterface = ({ onBack }: CustomerInterfaceProps) => {
+const OwnerInterface = ({ onBack }: OwnerInterfaceProps) => {
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -51,7 +51,7 @@ const CustomerInterface = ({ onBack }: CustomerInterfaceProps) => {
   if (!user) {
     return (
       <UnifiedAuth 
-        userRole="customer" 
+        userRole="owner" 
         onAuthSuccess={handleAuthSuccess} 
         onBack={onBack}
       />
@@ -61,10 +61,10 @@ const CustomerInterface = ({ onBack }: CustomerInterfaceProps) => {
   return (
     <RoleDashboard 
       user={user} 
-      userRole="customer" 
+      userRole="owner" 
       onSignOut={handleSignOut} 
     />
   );
 };
 
-export default CustomerInterface;
+export default OwnerInterface;
