@@ -131,13 +131,25 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
 
       if (error) {
         console.error('Sign in error:', error);
-        toast({
-          title: "Sign In Failed",
-          description: error.message,
-          variant: "destructive",
-        });
+        if (error.message.includes('Invalid login credentials')) {
+          toast({
+            title: "Sign In Failed",
+            description: "Invalid email or password. Please check your credentials and try again.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Sign In Failed",
+            description: error.message,
+            variant: "destructive",
+          });
+        }
       } else {
         console.log('Sign in successful:', data);
+        toast({
+          title: "Success",
+          description: "Successfully signed in!",
+        });
       }
     } catch (error) {
       console.error('Unexpected sign in error:', error);
@@ -169,11 +181,15 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
 
     setLoading(true);
     try {
+      // Get the current app URL for redirect
+      const currentUrl = window.location.origin;
+      console.log('Using redirect URL:', currentUrl);
+
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/`,
+          emailRedirectTo: currentUrl,
           data: {
             full_name: fullName.trim(),
             role: userRole,
@@ -185,28 +201,45 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
 
       if (error) {
         console.error('Sign up error:', error);
-        let errorMessage = error.message;
         
-        // Provide more helpful error messages
-        if (error.message.includes('user_role')) {
-          errorMessage = "Database configuration error. Please contact support.";
+        if (error.message.includes('User already registered')) {
+          toast({
+            title: "Account Exists",
+            description: "An account with this email already exists. Please try signing in instead.",
+            variant: "destructive",
+          });
+        } else if (error.message.includes('Password')) {
+          toast({
+            title: "Password Error",
+            description: "Password must be at least 6 characters long.",
+            variant: "destructive",
+          });
         } else if (error.message.includes('email')) {
-          errorMessage = "Please enter a valid email address.";
-        } else if (error.message.includes('password')) {
-          errorMessage = "Password must be at least 6 characters long.";
+          toast({
+            title: "Email Error",
+            description: "Please enter a valid email address.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Sign Up Failed",
+            description: error.message,
+            variant: "destructive",
+          });
         }
-        
-        toast({
-          title: "Sign Up Failed",
-          description: errorMessage,
-          variant: "destructive",
-        });
       } else {
         console.log('Sign up successful:', data);
-        toast({
-          title: "Success",
-          description: "Account created successfully! Please check your email to verify your account.",
-        });
+        if (data.user && !data.user.email_confirmed_at) {
+          toast({
+            title: "Check Your Email",
+            description: "Please check your email and click the confirmation link to complete your registration.",
+          });
+        } else {
+          toast({
+            title: "Success",
+            description: "Account created successfully!",
+          });
+        }
       }
     } catch (error) {
       console.error('Unexpected sign up error:', error);
@@ -227,14 +260,18 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
 
     setLoading(true);
     try {
+      // Use the current app URL for password reset redirect
+      const currentUrl = window.location.origin;
+      console.log('Sending password reset with redirect URL:', currentUrl);
+
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/`,
+        redirectTo: currentUrl,
       });
 
       if (error) {
         console.error('Password reset error:', error);
         toast({
-          title: "Error",
+          title: "Reset Failed",
           description: error.message,
           variant: "destructive",
         });
@@ -242,14 +279,14 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
         setResetSent(true);
         toast({
           title: "Reset Email Sent",
-          description: "Please check your email for password reset instructions",
+          description: "Please check your email for password reset instructions. The link will redirect you back to this application.",
         });
       }
     } catch (error) {
       console.error('Unexpected password reset error:', error);
       toast({
         title: "Error",
-        description: "An unexpected error occurred",
+        description: "An unexpected error occurred while sending reset email",
         variant: "destructive",
       });
     } finally {
@@ -327,13 +364,19 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
                 </div>
                 <h3 className="text-lg font-semibold mb-2">Email Sent!</h3>
                 <p className="text-gray-600 mb-4">
-                  We've sent a password reset link to {email}
+                  We've sent a password reset link to {email}. Please check your email and click the link to reset your password.
+                </p>
+                <p className="text-sm text-gray-500">
+                  The reset link will bring you back to this application.
                 </p>
               </div>
             )}
             <Button 
               variant="outline" 
-              onClick={() => setShowForgotPassword(false)}
+              onClick={() => {
+                setShowForgotPassword(false);
+                setResetSent(false);
+              }}
               className="w-full"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
