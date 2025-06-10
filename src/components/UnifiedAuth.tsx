@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { User, Mail, Lock, LogIn, UserPlus, KeyRound, ArrowLeft } from 'lucide-react';
+import { User, Mail, Lock, LogIn, UserPlus, KeyRound, ArrowLeft, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
@@ -25,6 +24,8 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
   const [loading, setLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -45,8 +46,36 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
     return () => subscription.unsubscribe();
   }, [userRole]);
 
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email) {
+      setEmailError('Email is required');
+      return false;
+    }
+    if (!emailRegex.test(email)) {
+      setEmailError('Please enter a valid email address');
+      return false;
+    }
+    setEmailError('');
+    return true;
+  };
+
+  const validatePassword = (password: string) => {
+    if (!password) {
+      setPasswordError('Password is required');
+      return false;
+    }
+    if (password.length < 6) {
+      setPasswordError('Password must be at least 6 characters long');
+      return false;
+    }
+    setPasswordError('');
+    return true;
+  };
+
   const checkUserRole = async (user: SupabaseUser) => {
     try {
+      console.log('Checking user role for:', user.id);
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('role')
@@ -55,12 +84,20 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
 
       if (error) {
         console.error('Error fetching user profile:', error);
+        toast({
+          title: "Profile Error",
+          description: "Could not fetch user profile. Please try signing up again.",
+          variant: "destructive",
+        });
+        await supabase.auth.signOut();
         return;
       }
 
       if (profile?.role === userRole) {
+        console.log('User role matches:', profile.role);
         onAuthSuccess(user, profile.role);
       } else {
+        console.log('User role mismatch. Expected:', userRole, 'Got:', profile?.role);
         toast({
           title: "Access Denied",
           description: `You don't have ${userRole} permissions`,
@@ -70,37 +107,43 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
       }
     } catch (error) {
       console.error('Error checking user role:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred while checking permissions",
+        variant: "destructive",
+      });
     }
   };
 
   const handleSignIn = async () => {
-    if (!email || !password) {
-      toast({
-        title: "Error",
-        description: "Please enter both email and password",
-        variant: "destructive",
-      });
+    console.log('Attempting sign in with:', { email, userRole });
+    
+    if (!validateEmail(email) || !validatePassword(password)) {
       return;
     }
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
         password,
       });
 
       if (error) {
+        console.error('Sign in error:', error);
         toast({
           title: "Sign In Failed",
           description: error.message,
           variant: "destructive",
         });
+      } else {
+        console.log('Sign in successful:', data);
       }
     } catch (error) {
+      console.error('Unexpected sign in error:', error);
       toast({
         title: "Error",
-        description: "An unexpected error occurred",
+        description: "An unexpected error occurred during sign in",
         variant: "destructive",
       });
     } finally {
@@ -109,10 +152,16 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
   };
 
   const handleSignUp = async () => {
-    if (!email || !password || !fullName) {
+    console.log('Attempting sign up with:', { email, fullName, userRole });
+    
+    if (!validateEmail(email) || !validatePassword(password)) {
+      return;
+    }
+
+    if (!fullName.trim()) {
       toast({
         title: "Error",
-        description: "Please fill in all required fields",
+        description: "Full name is required",
         variant: "destructive",
       });
       return;
@@ -120,36 +169,50 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/`,
           data: {
-            full_name: fullName,
+            full_name: fullName.trim(),
             role: userRole,
-            contact_number: contactNumber,
-            address: address,
+            contact_number: contactNumber.trim(),
+            address: address.trim(),
           }
         }
       });
 
       if (error) {
+        console.error('Sign up error:', error);
+        let errorMessage = error.message;
+        
+        // Provide more helpful error messages
+        if (error.message.includes('user_role')) {
+          errorMessage = "Database configuration error. Please contact support.";
+        } else if (error.message.includes('email')) {
+          errorMessage = "Please enter a valid email address.";
+        } else if (error.message.includes('password')) {
+          errorMessage = "Password must be at least 6 characters long.";
+        }
+        
         toast({
           title: "Sign Up Failed",
-          description: error.message,
+          description: errorMessage,
           variant: "destructive",
         });
       } else {
+        console.log('Sign up successful:', data);
         toast({
           title: "Success",
           description: "Account created successfully! Please check your email to verify your account.",
         });
       }
     } catch (error) {
+      console.error('Unexpected sign up error:', error);
       toast({
         title: "Error",
-        description: "An unexpected error occurred",
+        description: "An unexpected error occurred during sign up",
         variant: "destructive",
       });
     } finally {
@@ -158,22 +221,18 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
   };
 
   const handleForgotPassword = async () => {
-    if (!email) {
-      toast({
-        title: "Error",
-        description: "Please enter your email address",
-        variant: "destructive",
-      });
+    if (!validateEmail(email)) {
       return;
     }
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: `${window.location.origin}/`,
       });
 
       if (error) {
+        console.error('Password reset error:', error);
         toast({
           title: "Error",
           description: error.message,
@@ -187,6 +246,7 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
         });
       }
     } catch (error) {
+      console.error('Unexpected password reset error:', error);
       toast({
         title: "Error",
         description: "An unexpected error occurred",
@@ -237,14 +297,23 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
                       type="email"
                       placeholder="Enter your email"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="pl-10"
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        if (emailError) validateEmail(e.target.value);
+                      }}
+                      className={`pl-10 ${emailError ? 'border-red-500' : ''}`}
                     />
                   </div>
+                  {emailError && (
+                    <div className="flex items-center gap-1 mt-1 text-sm text-red-600">
+                      <AlertCircle className="w-4 h-4" />
+                      {emailError}
+                    </div>
+                  )}
                 </div>
                 <Button 
                   onClick={handleForgotPassword} 
-                  disabled={loading} 
+                  disabled={loading || !!emailError} 
                   className="w-full"
                 >
                   <KeyRound className="w-4 h-4 mr-2" />
@@ -314,10 +383,19 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
                       type="email"
                       placeholder="Enter your email"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="pl-10"
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        if (emailError) validateEmail(e.target.value);
+                      }}
+                      className={`pl-10 ${emailError ? 'border-red-500' : ''}`}
                     />
                   </div>
+                  {emailError && (
+                    <div className="flex items-center gap-1 mt-1 text-sm text-red-600">
+                      <AlertCircle className="w-4 h-4" />
+                      {emailError}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-700">Password</label>
@@ -327,14 +405,23 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
                       type="password"
                       placeholder="Enter your password"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="pl-10"
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (passwordError) validatePassword(e.target.value);
+                      }}
+                      className={`pl-10 ${passwordError ? 'border-red-500' : ''}`}
                     />
                   </div>
+                  {passwordError && (
+                    <div className="flex items-center gap-1 mt-1 text-sm text-red-600">
+                      <AlertCircle className="w-4 h-4" />
+                      {passwordError}
+                    </div>
+                  )}
                 </div>
                 <Button 
                   onClick={handleSignIn} 
-                  disabled={loading} 
+                  disabled={loading || !!emailError || !!passwordError} 
                   className="w-full"
                 >
                   <LogIn className="w-4 h-4 mr-2" />
@@ -373,10 +460,19 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
                       type="email"
                       placeholder="Enter your email"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="pl-10"
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        if (emailError) validateEmail(e.target.value);
+                      }}
+                      className={`pl-10 ${emailError ? 'border-red-500' : ''}`}
                     />
                   </div>
+                  {emailError && (
+                    <div className="flex items-center gap-1 mt-1 text-sm text-red-600">
+                      <AlertCircle className="w-4 h-4" />
+                      {emailError}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-700">Password *</label>
@@ -384,12 +480,21 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
                     <Lock className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                     <Input
                       type="password"
-                      placeholder="Create a password"
+                      placeholder="Create a password (minimum 6 characters)"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="pl-10"
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (passwordError) validatePassword(e.target.value);
+                      }}
+                      className={`pl-10 ${passwordError ? 'border-red-500' : ''}`}
                     />
                   </div>
+                  {passwordError && (
+                    <div className="flex items-center gap-1 mt-1 text-sm text-red-600">
+                      <AlertCircle className="w-4 h-4" />
+                      {passwordError}
+                    </div>
+                  )}
                 </div>
                 {userRole === 'customer' && (
                   <>
@@ -415,7 +520,7 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
                 )}
                 <Button 
                   onClick={handleSignUp} 
-                  disabled={loading} 
+                  disabled={loading || !!emailError || !!passwordError} 
                   className="w-full"
                 >
                   <UserPlus className="w-4 h-4 mr-2" />
