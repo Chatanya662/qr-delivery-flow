@@ -5,11 +5,12 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Users, Package, TrendingUp, Plus, Search, Edit, Trash2, BarChart3, Loader2, Phone } from 'lucide-react';
+import { Users, Package, TrendingUp, Plus, Search, Edit, Trash2, BarChart3, Loader2, Phone, CreditCard } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import QuantityManager from './QuantityManager';
 import ReportsOverview from './ReportsOverview';
+import CustomerPaymentManager from './CustomerPaymentManager';
 
 interface Customer {
   id: string;
@@ -329,7 +330,7 @@ const OwnerDashboard = () => {
             <TabsTrigger value="customers">Customer Management</TabsTrigger>
             <TabsTrigger value="quantities">Quantity & Pricing</TabsTrigger>
             <TabsTrigger value="reports">Reports & Analytics</TabsTrigger>
-            <TabsTrigger value="deliveries">Daily Operations</TabsTrigger>
+            <TabsTrigger value="payments">Customer Payment Management</TabsTrigger>
           </TabsList>
 
           <TabsContent value="customers">
@@ -469,22 +470,8 @@ const OwnerDashboard = () => {
             <ReportsOverview />
           </TabsContent>
 
-          <TabsContent value="deliveries">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5" />
-                  Daily Operations Dashboard
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-12 text-gray-500">
-                  <Package className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                  <p className="text-lg mb-2">Real-time Delivery Tracking Coming Soon</p>
-                  <p className="text-sm">Monitor live deliveries, assign routes, and track performance</p>
-                </div>
-              </CardContent>
-            </Card>
+          <TabsContent value="payments">
+            <CustomerPaymentManager customers={customers} />
           </TabsContent>
         </Tabs>
 

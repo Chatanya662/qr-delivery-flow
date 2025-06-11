@@ -9,6 +9,53 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      customer_payments: {
+        Row: {
+          amount_due: number
+          amount_paid: number
+          created_at: string
+          customer_id: string
+          id: string
+          month: number
+          notes: string | null
+          payment_date: string | null
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          amount_due?: number
+          amount_paid?: number
+          created_at?: string
+          customer_id: string
+          id?: string
+          month: number
+          notes?: string | null
+          payment_date?: string | null
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          amount_due?: number
+          amount_paid?: number
+          created_at?: string
+          customer_id?: string
+          id?: string
+          month?: number
+          notes?: string | null
+          payment_date?: string | null
+          updated_at?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_payments_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           address: string
@@ -165,6 +212,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_monthly_amount_due: {
+        Args: { p_customer_id: string; p_month: number; p_year: number }
+        Returns: number
+      }
       clean_expired_otps: {
         Args: Record<PropertyKey, never>
         Returns: undefined

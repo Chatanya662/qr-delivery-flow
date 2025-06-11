@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import DeliveryTracker from './DeliveryTracker';
 import ProfileSetupForm from './ProfileSetupForm';
+import CustomerPaymentStatus from './CustomerPaymentStatus';
 
 interface Customer {
   id: string;
@@ -180,6 +180,9 @@ const CustomerDashboard = ({ user, onSignOut }: CustomerDashboardProps) => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Payment Status */}
+            <CustomerPaymentStatus customerId={customerData.id} />
 
             {/* Delivery Tracker */}
             <DeliveryTracker 
