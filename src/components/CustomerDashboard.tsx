@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import DeliveryTracker from './DeliveryTracker';
+import ProfileSetupForm from './ProfileSetupForm';
 
 interface Customer {
   id: string;
@@ -36,6 +37,7 @@ const CustomerDashboard = ({ user, onSignOut }: CustomerDashboardProps) => {
   const [customerData, setCustomerData] = useState<Customer | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showSetupForm, setShowSetupForm] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -79,7 +81,7 @@ const CustomerDashboard = ({ user, onSignOut }: CustomerDashboardProps) => {
       if (customerData) {
         setCustomerData(customerData);
       } else {
-        // If no customer record exists, show profile info instead
+        // If no customer record exists, show setup form for OAuth users
         console.log('No customer record found for this user');
       }
     } catch (error) {
@@ -92,6 +94,11 @@ const CustomerDashboard = ({ user, onSignOut }: CustomerDashboardProps) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleProfileCreated = () => {
+    setShowSetupForm(false);
+    fetchUserData(); // Refresh data after profile is created
   };
 
   if (loading) {
@@ -181,12 +188,18 @@ const CustomerDashboard = ({ user, onSignOut }: CustomerDashboardProps) => {
               userRole="customer"
             />
           </div>
+        ) : showSetupForm ? (
+          <ProfileSetupForm
+            userId={user.id}
+            userEmail={user.email || ''}
+            onProfileCreated={handleProfileCreated}
+          />
         ) : (
           <Card>
             <CardContent className="text-center py-12">
               <User className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-              <h2 className="text-xl font-semibold mb-2">Customer Profile</h2>
-              <div className="space-y-2 mb-4">
+              <h2 className="text-xl font-semibold mb-2">Complete Your Profile</h2>
+              <div className="space-y-2 mb-6">
                 <p className="text-gray-600">
                   <strong>Name:</strong> {profile?.full_name || 'Not provided'}
                 </p>
@@ -204,9 +217,13 @@ const CustomerDashboard = ({ user, onSignOut }: CustomerDashboardProps) => {
                   </p>
                 )}
               </div>
-              <p className="text-sm text-gray-500">
-                Your delivery profile hasn't been set up yet. Please contact KC Farms to link your account with delivery services.
+              <p className="text-sm text-gray-500 mb-6">
+                To start receiving milk deliveries, please complete your delivery profile with your address and preferences.
               </p>
+              <Button onClick={() => setShowSetupForm(true)} size="lg">
+                <User className="w-4 h-4 mr-2" />
+                Complete Profile Setup
+              </Button>
             </CardContent>
           </Card>
         )}
