@@ -158,6 +158,9 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
     try {
       console.log(`Attempting Google sign in for role: ${userRole}`);
       
+      // Store the intended role in localStorage so we can assign it after OAuth callback
+      localStorage.setItem('pendingUserRole', userRole);
+      
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -165,9 +168,6 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
-          },
-          data: {
-            role: userRole
           }
         }
       });

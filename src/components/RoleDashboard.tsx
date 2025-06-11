@@ -34,21 +34,53 @@ const RoleDashboard = ({ user, userRole, onSignOut }: RoleDashboardProps) => {
 
       if (error) {
         console.error('Error fetching user role:', error);
-        toast({
-          title: "Error",
-          description: "Failed to verify user role",
-          variant: "destructive",
-        });
-        return;
+        
+        // If user doesn't have a profile yet (OAuth users), try to create one
+        const pendingRole = localStorage.getItem('pendingUserRole');
+        if (pendingRole && ['customer', 'delivery', 'owner'].includes(pendingRole)) {
+          console.log(`Creating profile for OAuth user with role: ${pendingRole}`);
+          
+          const { data: newProfile, error: createError } = await supabase
+            .from('profiles')
+            .insert({
+              id: user.id,
+              email: user.email || '',
+              full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
+              role: pendingRole as 'customer' | 'delivery' | 'owner'
+            })
+            .select('role')
+            .single();
+
+          if (createError) {
+            console.error('Error creating user profile:', createError);
+            toast({
+              title: "Error",
+              description: "Failed to create user profile",
+              variant: "destructive",
+            });
+            return;
+          }
+
+          localStorage.removeItem('pendingUserRole');
+          setUserActualRole(newProfile.role);
+        } else {
+          toast({
+            title: "Error",
+            description: "Failed to verify user role",
+            variant: "destructive",
+          });
+          return;
+        }
+      } else {
+        setUserActualRole(profile.role);
       }
 
-      setUserActualRole(profile.role);
-
       // Check if user is trying to access wrong dashboard
-      if (profile.role !== userRole) {
+      const actualRole = profile?.role || localStorage.getItem('pendingUserRole');
+      if (actualRole && actualRole !== userRole) {
         toast({
           title: "Access Denied",
-          description: `You are registered as a ${profile.role}. Redirecting you to the correct interface.`,
+          description: `You are registered as a ${actualRole}. Redirecting you to the correct interface.`,
           variant: "destructive",
         });
         
@@ -74,6 +106,8 @@ const RoleDashboard = ({ user, userRole, onSignOut }: RoleDashboardProps) => {
   const handleSignOut = async () => {
     try {
       await supabase.auth.signOut();
+      // Clear any pending role from localStorage
+      localStorage.removeItem('pendingUserRole');
       onSignOut();
       toast({
         title: "Success",
