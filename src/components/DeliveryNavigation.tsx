@@ -42,18 +42,52 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
     }
     fetchTodayDeliveries();
 
-    // Set up real-time subscription for customer updates
+    // Set up real-time subscription for customer updates and deletions
     const subscription = supabase
-      .channel('customers-delivery-updates')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'customers' }, (payload) => {
+      .channel('customers-delivery-realtime')
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'customers' 
+      }, (payload) => {
+        console.log('Customer updated:', payload);
         setCustomers(prev => prev.map(c => c.id === payload.new.id ? payload.new as Customer : c));
+      })
+      .on('postgres_changes', { 
+        event: 'DELETE', 
+        schema: 'public', 
+        table: 'customers' 
+      }, (payload) => {
+        console.log('Customer deleted:', payload.old.id);
+        setCustomers(prev => {
+          const filtered = prev.filter(c => c.id !== payload.old.id);
+          // Reset current index if we deleted the current customer
+          if (currentIndex >= filtered.length && filtered.length > 0) {
+            setCurrentIndex(filtered.length - 1);
+          } else if (filtered.length === 0) {
+            setCurrentIndex(0);
+          }
+          return filtered;
+        });
+        toast({
+          title: "Customer Removed",
+          description: "Customer has been deleted from the system",
+        });
+      })
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'customers' 
+      }, (payload) => {
+        console.log('New customer added:', payload);
+        setCustomers(prev => [...prev, payload.new as Customer]);
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(subscription);
     };
-  }, [propCustomers]);
+  }, [propCustomers, currentIndex]);
 
   const fetchCustomers = async () => {
     try {
@@ -110,20 +144,6 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
     }
   };
 
-  const currentCustomer = customers[currentIndex];
-
-  const handleNext = () => {
-    if (currentIndex < customers.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    }
-  };
-
-  const handlePrevious = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-    }
-  };
-
   const saveDeliveryRecord = async (quantity: number, status: 'delivered' | 'missed') => {
     try {
       const deliveryTime = new Date().toLocaleTimeString('en-US', { 
@@ -156,10 +176,8 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
         description: `Delivery ${status} recorded successfully${status === 'delivered' ? ` (${quantity}L)` : ''}`,
       });
 
-      // Update local state
       setDeliveryStatus(prev => ({ ...prev, [currentCustomer.id]: { status, quantity } }));
 
-      // If quantity delivered is different from regular quantity, update customer's regular quantity
       if (status === 'delivered' && quantity !== currentCustomer.quantity) {
         const shouldUpdateRegular = confirm(`Would you like to update ${currentCustomer.name}'s regular quantity from ${currentCustomer.quantity}L to ${quantity}L for future deliveries?`);
         
@@ -296,6 +314,20 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
     };
   };
 
+  const currentCustomer = customers[currentIndex];
+
+  const handleNext = () => {
+    if (currentIndex < customers.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -305,7 +337,7 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
     );
   }
 
-  if (!currentCustomer) {
+  if (!currentCustomer || customers.length === 0) {
     return (
       <div className="text-center p-8">
         <p className="text-gray-500">No customers available</p>

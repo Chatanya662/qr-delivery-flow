@@ -18,72 +18,112 @@ export const useCamera = (isOpen: boolean) => {
 
   const startCamera = async () => {
     try {
-      // Check if we're on HTTPS or localhost
-      const isSecureContext = window.isSecureContext || window.location.hostname === 'localhost';
+      console.log('Starting camera...');
+      console.log('Location protocol:', window.location.protocol);
+      console.log('Location hostname:', window.location.hostname);
       
-      if (!isSecureContext) {
-        setError('Camera access requires HTTPS. Please use HTTPS or localhost to access the camera.');
-        return;
-      }
-
       // Check if getUserMedia is supported
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setError('Camera is not supported in this browser.');
+        setError('Camera is not supported in this browser. Please use a modern browser like Chrome, Firefox, or Safari.');
         return;
       }
 
-      // Try different camera configurations for better mobile support
-      const constraints = {
-        video: {
-          facingMode: 'environment', // Use back camera
-          width: { ideal: 1280, min: 640 },
-          height: { ideal: 720, min: 480 }
-        }
-      };
+      // Check for secure context (HTTPS or localhost)
+      const isSecureContext = window.isSecureContext || 
+                             window.location.hostname === 'localhost' ||
+                             window.location.hostname === '127.0.0.1' ||
+                             window.location.protocol === 'https:';
+      
+      if (!isSecureContext) {
+        setError('Camera access requires HTTPS. Please ensure you are using a secure connection (https://) to access the camera.');
+        return;
+      }
 
       let mediaStream;
       
-      try {
-        // First try with preferred settings
-        mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-      } catch (err) {
-        console.log('Failed with preferred settings, trying basic video');
-        try {
-          // Fallback to basic video if environment camera fails
-          mediaStream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: 'environment' }
-          });
-        } catch (err2) {
-          console.log('Failed with environment camera, trying any camera');
-          // Final fallback to any available camera
-          mediaStream = await navigator.mediaDevices.getUserMedia({ 
-            video: true 
-          });
+      // Try multiple camera configurations for better compatibility
+      const cameraConfigs = [
+        // First try with environment camera (back camera)
+        {
+          video: {
+            facingMode: 'environment',
+            width: { ideal: 1280, min: 640 },
+            height: { ideal: 720, min: 480 }
+          }
+        },
+        // Fallback to environment camera with basic settings
+        {
+          video: { facingMode: 'environment' }
+        },
+        // Fallback to any camera
+        {
+          video: {
+            width: { ideal: 1280, min: 640 },
+            height: { ideal: 720, min: 480 }
+          }
+        },
+        // Final fallback - basic video
+        {
+          video: true
         }
+      ];
+
+      let lastError;
+      for (const config of cameraConfigs) {
+        try {
+          console.log('Trying camera config:', config);
+          mediaStream = await navigator.mediaDevices.getUserMedia(config);
+          console.log('Camera started successfully with config:', config);
+          break;
+        } catch (err: any) {
+          console.log('Failed with config:', config, 'Error:', err);
+          lastError = err;
+          continue;
+        }
+      }
+
+      if (!mediaStream) {
+        throw lastError;
       }
 
       setStream(mediaStream);
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
-        videoRef.current.play().catch(e => {
-          console.error('Error playing video:', e);
-        });
+        
+        // Ensure video plays
+        try {
+          await videoRef.current.play();
+          console.log('Video started playing');
+        } catch (playError) {
+          console.error('Error playing video:', playError);
+          // Try to play again after a short delay
+          setTimeout(() => {
+            if (videoRef.current) {
+              videoRef.current.play().catch(e => console.error('Retry play failed:', e));
+            }
+          }, 100);
+        }
       }
+      
       setError('');
+      console.log('Camera setup completed successfully');
+      
     } catch (err: any) {
       console.error('Camera error:', err);
       let errorMessage = 'Unable to access camera. ';
       
       if (err.name === 'NotAllowedError') {
-        errorMessage += 'Camera permission denied. Please allow camera access and try again.';
+        errorMessage += 'Camera permission was denied. Please allow camera access in your browser settings and refresh the page.';
       } else if (err.name === 'NotFoundError') {
-        errorMessage += 'No camera found on this device.';
+        errorMessage += 'No camera found on this device. Please ensure your device has a camera.';
       } else if (err.name === 'NotSupportedError') {
-        errorMessage += 'Camera is not supported in this browser.';
+        errorMessage += 'Camera is not supported in this browser. Please use Chrome, Firefox, or Safari.';
       } else if (err.name === 'NotReadableError') {
-        errorMessage += 'Camera is already in use by another application.';
+        errorMessage += 'Camera is already in use by another application. Please close other camera apps and try again.';
+      } else if (err.name === 'OverconstrainedError') {
+        errorMessage += 'Camera settings are not supported. Trying with basic settings...';
       } else {
-        errorMessage += 'Please check permissions and try again.';
+        errorMessage += 'Please check camera permissions and try again. Make sure you are using HTTPS.';
       }
       
       setError(errorMessage);
@@ -91,9 +131,16 @@ export const useCamera = (isOpen: boolean) => {
   };
 
   const stopCamera = () => {
+    console.log('Stopping camera...');
     if (stream) {
-      stream.getTracks().forEach(track => track.stop());
+      stream.getTracks().forEach(track => {
+        track.stop();
+        console.log('Stopped camera track:', track.kind);
+      });
       setStream(null);
+    }
+    if (videoRef.current && videoRef.current.srcObject) {
+      videoRef.current.srcObject = null;
     }
   };
 

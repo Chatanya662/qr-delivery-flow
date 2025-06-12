@@ -27,23 +27,50 @@ const CustomerSelector = ({ onCustomerSelect }: CustomerSelectorProps) => {
   const { toast } = useToast();
 
   const formatQuantity = (quantity: number) => {
-    // Format quantity to show decimals properly (e.g., 0.5, 1, 1.5, 2)
     return quantity % 1 === 0 ? quantity.toString() : quantity.toFixed(1);
   };
 
   useEffect(() => {
     fetchCustomers();
 
-    // Set up real-time subscription for customer updates
+    // Set up real-time subscription for customer updates and deletions
     const subscription = supabase
-      .channel('customers-selector-updates')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, (payload) => {
-        if (payload.eventType === 'INSERT') {
-          setCustomers(prev => [...prev, payload.new as Customer]);
-        } else if (payload.eventType === 'UPDATE') {
-          setCustomers(prev => prev.map(c => c.id === payload.new.id ? payload.new as Customer : c));
-        } else if (payload.eventType === 'DELETE') {
-          setCustomers(prev => prev.filter(c => c.id !== payload.old.id));
+      .channel('customers-selector-realtime')
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'customers' 
+      }, (payload) => {
+        console.log('Customer added:', payload);
+        setCustomers(prev => [...prev, payload.new as Customer]);
+        toast({
+          title: "New Customer",
+          description: "A new customer has been added",
+        });
+      })
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'customers' 
+      }, (payload) => {
+        console.log('Customer updated:', payload);
+        setCustomers(prev => prev.map(c => c.id === payload.new.id ? payload.new as Customer : c));
+      })
+      .on('postgres_changes', { 
+        event: 'DELETE', 
+        schema: 'public', 
+        table: 'customers' 
+      }, (payload) => {
+        console.log('Customer deleted:', payload.old.id);
+        setCustomers(prev => prev.filter(c => c.id !== payload.old.id));
+        toast({
+          title: "Customer Removed",
+          description: "A customer has been removed from the system",
+        });
+        // Close photo modal if the deleted customer was selected
+        if (selectedCustomer && selectedCustomer.id === payload.old.id) {
+          setShowPhotos(false);
+          setSelectedCustomer(null);
         }
       })
       .subscribe();
@@ -51,7 +78,7 @@ const CustomerSelector = ({ onCustomerSelect }: CustomerSelectorProps) => {
     return () => {
       supabase.removeChannel(subscription);
     };
-  }, []);
+  }, [selectedCustomer]);
 
   const fetchCustomers = async () => {
     try {
