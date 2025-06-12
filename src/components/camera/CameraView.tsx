@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Camera, RotateCcw } from 'lucide-react';
+import { Camera, RotateCcw, AlertTriangle } from 'lucide-react';
 
 interface CameraViewProps {
   videoRef: React.RefObject<HTMLVideoElement>;
@@ -26,9 +26,27 @@ const CameraView = ({
 }: CameraViewProps) => {
   if (error) {
     return (
-      <div className="text-center p-4">
-        <p className="text-red-600 mb-4">{error}</p>
-        <Button onClick={onStartCamera}>Try Again</Button>
+      <div className="text-center p-4 space-y-4">
+        <AlertTriangle className="w-12 h-12 text-red-500 mx-auto" />
+        <div className="space-y-2">
+          <p className="text-red-600 font-medium">Camera Access Error</p>
+          <p className="text-sm text-gray-600">{error}</p>
+        </div>
+        
+        <div className="space-y-2 text-xs text-gray-500">
+          <p><strong>For mobile users:</strong></p>
+          <ul className="list-disc list-inside space-y-1">
+            <li>Make sure you're using HTTPS (not HTTP)</li>
+            <li>Allow camera permissions when prompted</li>
+            <li>Close other camera apps</li>
+            <li>Try refreshing the page</li>
+          </ul>
+        </div>
+        
+        <Button onClick={onStartCamera} className="mt-4">
+          <Camera className="w-4 h-4 mr-2" />
+          Try Again
+        </Button>
       </div>
     );
   }

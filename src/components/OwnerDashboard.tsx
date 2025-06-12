@@ -36,12 +36,23 @@ const OwnerDashboard = () => {
     const subscription = supabase
       .channel('customers-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, (payload) => {
+        console.log('Customer change detected:', payload);
+        
         if (payload.eventType === 'INSERT') {
           setCustomers(prev => [...prev, payload.new as Customer]);
         } else if (payload.eventType === 'UPDATE') {
           setCustomers(prev => prev.map(c => c.id === payload.new.id ? payload.new as Customer : c));
         } else if (payload.eventType === 'DELETE') {
-          setCustomers(prev => prev.filter(c => c.id !== payload.old.id));
+          console.log('Removing customer from state:', payload.old.id);
+          setCustomers(prev => {
+            const filtered = prev.filter(c => c.id !== payload.old.id);
+            console.log('Customers after deletion:', filtered.length);
+            return filtered;
+          });
+          toast({
+            title: "Customer Deleted",
+            description: "Customer has been removed successfully",
+          });
         }
       })
       .subscribe();
@@ -70,6 +81,7 @@ const OwnerDashboard = () => {
       }
 
       if (data) {
+        console.log('Fetched customers:', data.length);
         setCustomers(data);
       }
     } catch (error) {
@@ -84,6 +96,7 @@ const OwnerDashboard = () => {
     }
   };
 
+  // ... keep existing code (stats calculation)
   const stats = {
     totalCustomers: customers.length,
     activeCustomers: customers.length, // All customers are active in database
@@ -184,13 +197,43 @@ const OwnerDashboard = () => {
   const handleDeleteCustomer = async (customerId: string) => {
     if (confirm('Are you sure you want to delete this customer? This will also delete all their delivery records.')) {
       try {
-        const { error } = await supabase
+        console.log('Attempting to delete customer:', customerId);
+        
+        // Delete from delivery_records first due to foreign key constraints
+        const { error: deliveryError } = await supabase
+          .from('delivery_records')
+          .delete()
+          .eq('customer_id', customerId);
+
+        if (deliveryError) {
+          console.error('Error deleting delivery records:', deliveryError);
+          toast({
+            title: "Error",
+            description: "Failed to delete customer delivery records",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Delete from customer_payments
+        const { error: paymentError } = await supabase
+          .from('customer_payments')
+          .delete()
+          .eq('customer_id', customerId);
+
+        if (paymentError) {
+          console.error('Error deleting payment records:', paymentError);
+          // Continue anyway as this might not exist
+        }
+
+        // Now delete the customer
+        const { error: customerError } = await supabase
           .from('customers')
           .delete()
           .eq('id', customerId);
 
-        if (error) {
-          console.error('Error deleting customer:', error);
+        if (customerError) {
+          console.error('Error deleting customer:', customerError);
           toast({
             title: "Error",
             description: "Failed to delete customer",
@@ -199,9 +242,10 @@ const OwnerDashboard = () => {
           return;
         }
 
+        console.log('Customer deleted successfully');
         toast({
           title: "Success",
-          description: "Customer deleted successfully",
+          description: "Customer and all related records deleted successfully",
         });
       } catch (error) {
         console.error('Error:', error);
