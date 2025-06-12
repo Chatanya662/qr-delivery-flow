@@ -38,17 +38,39 @@ const CameraCapture = ({ isOpen, onClose, onPhotoTaken, deliveryDate, customerNa
 
   const startCamera = async () => {
     try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' }
-      });
+      // Try different camera configurations for better mobile support
+      const constraints = {
+        video: {
+          facingMode: 'environment', // Use back camera
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      };
+
+      let mediaStream;
+      
+      try {
+        // First try with preferred settings
+        mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (err) {
+        console.log('Failed with preferred settings, trying basic video');
+        // Fallback to basic video if environment camera fails
+        mediaStream = await navigator.mediaDevices.getUserMedia({ 
+          video: true 
+        });
+      }
+
       setStream(mediaStream);
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+        videoRef.current.play().catch(e => {
+          console.error('Error playing video:', e);
+        });
       }
       setError('');
     } catch (err) {
-      setError('Unable to access camera. Please check permissions.');
       console.error('Camera error:', err);
+      setError('Unable to access camera. Please check permissions and ensure you are using HTTPS.');
     }
   };
 
@@ -267,6 +289,7 @@ const CameraCapture = ({ isOpen, onClose, onPhotoTaken, deliveryDate, customerNa
                     ref={videoRef}
                     autoPlay
                     playsInline
+                    muted
                     className="w-full h-64 object-cover"
                   />
                 ) : (

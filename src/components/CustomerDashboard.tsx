@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -42,6 +43,38 @@ const CustomerDashboard = ({ user, onSignOut }: CustomerDashboardProps) => {
 
   useEffect(() => {
     fetchUserData();
+
+    // Set up real-time subscription for customer updates and deletions
+    const subscription = supabase
+      .channel('customer-dashboard-updates')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'customers',
+        filter: `profile_id=eq.${user.id}`
+      }, (payload) => {
+        console.log('Customer data changed:', payload);
+        if (payload.eventType === 'DELETE') {
+          // Customer was deleted, clear the data
+          setCustomerData(null);
+          toast({
+            title: "Account Removed",
+            description: "Your customer account has been removed by the owner",
+            variant: "destructive",
+          });
+        } else if (payload.eventType === 'UPDATE') {
+          // Customer was updated
+          setCustomerData(payload.new as Customer);
+        } else if (payload.eventType === 'INSERT') {
+          // New customer record created
+          setCustomerData(payload.new as Customer);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
   }, [user.id]);
 
   const fetchUserData = async () => {
@@ -83,6 +116,7 @@ const CustomerDashboard = ({ user, onSignOut }: CustomerDashboardProps) => {
       } else {
         // If no customer record exists, show setup form for OAuth users
         console.log('No customer record found for this user');
+        setCustomerData(null);
       }
     } catch (error) {
       console.error('Error:', error);

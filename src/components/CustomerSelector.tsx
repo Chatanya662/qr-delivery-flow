@@ -26,6 +26,11 @@ const CustomerSelector = ({ onCustomerSelect }: CustomerSelectorProps) => {
   const [showPhotos, setShowPhotos] = useState(false);
   const { toast } = useToast();
 
+  const formatQuantity = (quantity: number) => {
+    // Format quantity to show decimals properly (e.g., 0.5, 1, 1.5, 2)
+    return quantity % 1 === 0 ? quantity.toString() : quantity.toFixed(1);
+  };
+
   useEffect(() => {
     fetchCustomers();
 
@@ -128,7 +133,7 @@ const CustomerSelector = ({ onCustomerSelect }: CustomerSelectorProps) => {
                 </div>
               )}
               <div className="text-sm text-gray-600">
-                <span className="font-medium">Regular Quantity:</span> {customer.quantity} Liter(s)
+                <span className="font-medium">Regular Quantity:</span> {formatQuantity(customer.quantity)} Liter(s)
               </div>
               <div className="flex gap-2">
                 <Button 

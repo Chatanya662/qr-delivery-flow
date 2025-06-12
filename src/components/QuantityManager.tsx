@@ -28,6 +28,11 @@ const QuantityManager = ({ customers, onUpdateQuantity, onUpdatePrice }: Quantit
 
   const pricePerLiter = 100; // Fixed price for cow milk
 
+  const formatQuantity = (quantity: number) => {
+    // Format quantity to show decimals properly (e.g., 0.5, 1, 1.5, 2)
+    return quantity % 1 === 0 ? quantity.toString() : quantity.toFixed(1);
+  };
+
   const handleEdit = (customer: Customer) => {
     setEditingCustomer(customer.id);
     setTempQuantity(customer.quantity);
@@ -76,7 +81,7 @@ const QuantityManager = ({ customers, onUpdateQuantity, onUpdatePrice }: Quantit
 
   const adjustQuantity = (change: number) => {
     const newQuantity = Math.max(0, tempQuantity + change);
-    setTempQuantity(newQuantity);
+    setTempQuantity(Math.round(newQuantity * 10) / 10); // Round to 1 decimal place
   };
 
   return (
@@ -148,10 +153,10 @@ const QuantityManager = ({ customers, onUpdateQuantity, onUpdatePrice }: Quantit
                     </div>
                   ) : (
                     <div className="mt-1 text-sm text-gray-600">
-                      <p>Daily Quantity: {customer.quantity} Liter(s)</p>
+                      <p>Daily Quantity: {formatQuantity(customer.quantity)} Liter(s)</p>
                       <p>Rate: ₹{pricePerLiter} per liter</p>
                       <p className="font-medium text-gray-800">
-                        Daily Total: ₹{customer.quantity * pricePerLiter}
+                        Daily Total: ₹{(customer.quantity * pricePerLiter).toFixed(2)}
                       </p>
                     </div>
                   )}
