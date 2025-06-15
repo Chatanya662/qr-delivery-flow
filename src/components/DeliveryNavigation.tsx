@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, ArrowRight, User, MapPin, Eye, Loader2, Phone } from 'lucide-react';
+import { ArrowLeft, ArrowRight, User, MapPin, Eye, Loader2, Phone, Image } from 'lucide-react';
 import CameraCapture from './CameraCapture';
 import CustomerBilling from './CustomerBilling';
 import AttendanceStats from './AttendanceStats';
 import DeliveryActionButtons from './DeliveryActionButtons';
+import DeliveryPhotos from './DeliveryPhotos';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -27,7 +28,8 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
   const [showCamera, setShowCamera] = useState(false);
   const [showBilling, setShowBilling] = useState(false);
   const [showStats, setShowStats] = useState(false);
-  const [deliveryStatus, setDeliveryStatus] = useState<Record<string, { status: 'delivered' | 'missed', quantity?: number }>>({});
+  const [showPhotos, setShowPhotos] = useState(false);
+  const [deliveryStatus, setDeliveryStatus] = useState<Record<string, { status: 'delivered' | 'missed', quantity?: number, photoUrl?: string }>>({});
   const [customers, setCustomers] = useState<Customer[]>(propCustomers);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -121,7 +123,7 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
     try {
       const { data, error } = await supabase
         .from('delivery_records')
-        .select('customer_id, status, quantity_delivered')
+        .select('customer_id, status, quantity_delivered, photo_url')
         .eq('delivery_date', today);
 
       if (error) {
@@ -130,11 +132,12 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
       }
 
       if (data) {
-        const statusMap: Record<string, { status: 'delivered' | 'missed', quantity?: number }> = {};
+        const statusMap: Record<string, { status: 'delivered' | 'missed', quantity?: number, photoUrl?: string }> = {};
         data.forEach(record => {
           statusMap[record.customer_id] = {
             status: record.status as 'delivered' | 'missed',
-            quantity: record.quantity_delivered
+            quantity: record.quantity_delivered,
+            photoUrl: record.photo_url
           };
         });
         setDeliveryStatus(statusMap);
@@ -279,7 +282,8 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
       ...prev, 
       [currentCustomer.id]: { 
         status, 
-        quantity: status === 'delivered' ? currentCustomer.quantity : 0 
+        quantity: status === 'delivered' ? currentCustomer.quantity : 0,
+        photoUrl: photoData
       } 
     }));
     setShowCamera(false);
@@ -407,18 +411,33 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
                   ? 'text-green-800' 
                   : 'text-red-800'
               }`}>
-                <div>Status: {customerStatus.status === 'delivered' 
-                  ? `Delivered ✓` 
-                  : 'Missed ✗'}
-                </div>
-                {customerStatus.status === 'delivered' && customerStatus.quantity && (
-                  <div className="text-sm mt-1">
-                    Today's Delivery: {customerStatus.quantity} Liter(s) 
-                    <span className="ml-2 text-green-600">
-                      (₹{customerStatus.quantity * 100})
-                    </span>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div>Status: {customerStatus.status === 'delivered' 
+                      ? `Delivered ✓` 
+                      : 'Missed ✗'}
+                    </div>
+                    {customerStatus.status === 'delivered' && customerStatus.quantity && (
+                      <div className="text-sm mt-1">
+                        Today's Delivery: {customerStatus.quantity} Liter(s) 
+                        <span className="ml-2 text-green-600">
+                          (₹{customerStatus.quantity * 100})
+                        </span>
+                      </div>
+                    )}
                   </div>
-                )}
+                  {customerStatus.photoUrl && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowPhotos(true)}
+                      className="ml-2"
+                    >
+                      <Image className="w-4 h-4 mr-1" />
+                      View Photo
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -451,6 +470,14 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
               className="flex-1"
             >
               📊 Attendance
+            </Button>
+            <Button 
+              onClick={() => setShowPhotos(true)}
+              variant="outline"
+              className="flex-1"
+            >
+              <Image className="w-4 h-4 mr-2" />
+              Photos
             </Button>
           </div>
         </CardContent>
@@ -504,6 +531,17 @@ const DeliveryNavigation = ({ customers: propCustomers, userRole }: DeliveryNavi
             />
           </div>
         </div>
+      )}
+
+      {/* Delivery Photos Modal */}
+      {showPhotos && (
+        <DeliveryPhotos
+          isOpen={showPhotos}
+          onClose={() => setShowPhotos(false)}
+          customerId={currentCustomer.id}
+          customerName={currentCustomer.name}
+          userRole={userRole}
+        />
       )}
     </div>
   );

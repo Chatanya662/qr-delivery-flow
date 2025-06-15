@@ -118,11 +118,24 @@ const CameraCapture = ({
               onStartCamera={startCamera}
             />
           ) : (
-            <PhotoConfirmation
-              isUploading={isUploading}
-              onDeliveryStatus={handleDeliveryStatus}
-              onRetakePhoto={handleRetakePhoto}
-            />
+            <div className="space-y-4">
+              {/* Show captured photo */}
+              {capturedPhoto && (
+                <div className="relative bg-gray-100 rounded-lg overflow-hidden">
+                  <img
+                    src={capturedPhoto}
+                    alt="Captured delivery"
+                    className="w-full h-64 object-cover"
+                  />
+                </div>
+              )}
+              
+              <PhotoConfirmation
+                isUploading={isUploading}
+                onDeliveryStatus={handleDeliveryStatus}
+                onRetakePhoto={handleRetakePhoto}
+              />
+            </div>
           )}
         </CardContent>
       </Card>
