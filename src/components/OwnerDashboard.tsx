@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -27,6 +28,7 @@ const OwnerDashboard = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [newCustomer, setNewCustomer] = useState({ name: '', address: '', quantity: 1, contact_number: '' });
+  const [deleting, setDeleting] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -40,8 +42,16 @@ const OwnerDashboard = () => {
         
         if (payload.eventType === 'INSERT') {
           setCustomers(prev => [...prev, payload.new as Customer]);
+          toast({
+            title: "Customer Added",
+            description: "New customer has been added successfully",
+          });
         } else if (payload.eventType === 'UPDATE') {
           setCustomers(prev => prev.map(c => c.id === payload.new.id ? payload.new as Customer : c));
+          toast({
+            title: "Customer Updated",
+            description: "Customer has been updated successfully",
+          });
         } else if (payload.eventType === 'DELETE') {
           console.log('Removing customer from state:', payload.old.id);
           setCustomers(prev => {
@@ -49,6 +59,7 @@ const OwnerDashboard = () => {
             console.log('Customers after deletion:', filtered.length);
             return filtered;
           });
+          setDeleting(null);
           toast({
             title: "Customer Deleted",
             description: "Customer has been removed successfully",
@@ -195,66 +206,76 @@ const OwnerDashboard = () => {
   };
 
   const handleDeleteCustomer = async (customerId: string) => {
-    if (confirm('Are you sure you want to delete this customer? This will also delete all their delivery records.')) {
-      try {
-        console.log('Attempting to delete customer:', customerId);
-        
-        // Delete from delivery_records first due to foreign key constraints
-        const { error: deliveryError } = await supabase
-          .from('delivery_records')
-          .delete()
-          .eq('customer_id', customerId);
+    if (!confirm('Are you sure you want to delete this customer? This will permanently remove all their data including delivery records and payment history.')) {
+      return;
+    }
 
-        if (deliveryError) {
-          console.error('Error deleting delivery records:', deliveryError);
-          toast({
-            title: "Error",
-            description: "Failed to delete customer delivery records",
-            variant: "destructive",
-          });
-          return;
-        }
+    try {
+      setDeleting(customerId);
+      console.log('Starting deletion process for customer:', customerId);
+      
+      // Step 1: Delete from delivery_records first (foreign key constraint)
+      const { error: deliveryError } = await supabase
+        .from('delivery_records')
+        .delete()
+        .eq('customer_id', customerId);
 
-        // Delete from customer_payments
-        const { error: paymentError } = await supabase
-          .from('customer_payments')
-          .delete()
-          .eq('customer_id', customerId);
+      if (deliveryError) {
+        console.error('Error deleting delivery records:', deliveryError);
+        // Continue anyway as this might not exist
+      }
 
-        if (paymentError) {
-          console.error('Error deleting payment records:', paymentError);
-          // Continue anyway as this might not exist
-        }
+      // Step 2: Delete from customer_payments
+      const { error: paymentError } = await supabase
+        .from('customer_payments')
+        .delete()
+        .eq('customer_id', customerId);
 
-        // Now delete the customer
-        const { error: customerError } = await supabase
-          .from('customers')
-          .delete()
-          .eq('id', customerId);
+      if (paymentError) {
+        console.error('Error deleting payment records:', paymentError);
+        // Continue anyway as this might not exist
+      }
 
-        if (customerError) {
-          console.error('Error deleting customer:', customerError);
-          toast({
-            title: "Error",
-            description: "Failed to delete customer",
-            variant: "destructive",
-          });
-          return;
-        }
+      // Step 3: Delete the customer record itself
+      const { error: customerError } = await supabase
+        .from('customers')
+        .delete()
+        .eq('id', customerId);
 
-        console.log('Customer deleted successfully');
-        toast({
-          title: "Success",
-          description: "Customer and all related records deleted successfully",
-        });
-      } catch (error) {
-        console.error('Error:', error);
+      if (customerError) {
+        console.error('Error deleting customer:', customerError);
+        setDeleting(null);
         toast({
           title: "Error",
-          description: "Something went wrong while deleting customer",
+          description: "Failed to delete customer: " + customerError.message,
           variant: "destructive",
         });
+        return;
       }
+
+      console.log('Customer deleted successfully from database');
+      
+      // Manually update local state as backup (real-time should handle this)
+      setCustomers(prev => {
+        const filtered = prev.filter(c => c.id !== customerId);
+        console.log('Manual state update - customers remaining:', filtered.length);
+        return filtered;
+      });
+      
+      setDeleting(null);
+      toast({
+        title: "Success",
+        description: "Customer and all related records deleted successfully",
+      });
+      
+    } catch (error) {
+      console.error('Error during deletion:', error);
+      setDeleting(null);
+      toast({
+        title: "Error",
+        description: "Something went wrong while deleting customer",
+        variant: "destructive",
+      });
     }
   };
 
@@ -481,6 +502,7 @@ const OwnerDashboard = () => {
                               variant="outline"
                               size="sm"
                               onClick={() => setEditingCustomer(customer)}
+                              disabled={deleting === customer.id}
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
@@ -489,8 +511,13 @@ const OwnerDashboard = () => {
                               size="sm"
                               onClick={() => handleDeleteCustomer(customer.id)}
                               className="text-red-600 hover:text-red-700"
+                              disabled={deleting === customer.id}
                             >
-                              <Trash2 className="w-4 h-4" />
+                              {deleting === customer.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
                             </Button>
                           </div>
                         </div>
