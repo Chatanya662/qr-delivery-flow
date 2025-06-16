@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { LogOut } from 'lucide-react';
@@ -18,6 +19,50 @@ const RoleDashboard = ({ user, userRole, onSignOut }: RoleDashboardProps) => {
   const [userActualRole, setUserActualRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+
+  const createCustomerRecordForOAuth = async (userId: string) => {
+    try {
+      // Check if customer record already exists
+      const { data: existingCustomer } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('profile_id', userId)
+        .single();
+
+      if (existingCustomer) {
+        console.log('Customer record already exists');
+        return;
+      }
+
+      // Create a new customer record for OAuth users
+      const { error: customerError } = await supabase
+        .from('customers')
+        .insert({
+          profile_id: userId,
+          name: user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'Customer',
+          address: 'Please update your address',
+          quantity: 1,
+          contact_number: user.phone || ''
+        });
+
+      if (customerError) {
+        console.error('Error creating customer record:', customerError);
+        toast({
+          title: "Profile Setup Needed",
+          description: "Please contact support to complete your customer profile setup.",
+          variant: "destructive",
+        });
+      } else {
+        console.log('Customer record created successfully for OAuth user');
+        toast({
+          title: "Welcome!",
+          description: "Your customer profile has been set up. You can update your details anytime.",
+        });
+      }
+    } catch (error) {
+      console.error('Error in createCustomerRecordForOAuth:', error);
+    }
+  };
 
   useEffect(() => {
     checkUserRole();
@@ -62,6 +107,11 @@ const RoleDashboard = ({ user, userRole, onSignOut }: RoleDashboardProps) => {
 
           localStorage.removeItem('pendingUserRole');
           setUserActualRole(newProfile.role);
+          
+          // For customer role, create customer record
+          if (pendingRole === 'customer') {
+            await createCustomerRecordForOAuth(user.id);
+          }
         } else {
           toast({
             title: "Error",
@@ -72,6 +122,11 @@ const RoleDashboard = ({ user, userRole, onSignOut }: RoleDashboardProps) => {
         }
       } else {
         setUserActualRole(profile.role);
+        
+        // For existing customer profiles, ensure customer record exists
+        if (profile.role === 'customer') {
+          await createCustomerRecordForOAuth(user.id);
+        }
       }
 
       // Check if user is trying to access wrong dashboard

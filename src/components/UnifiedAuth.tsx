@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +21,46 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
+
+  const createCustomerRecord = async (user: SupabaseUser) => {
+    try {
+      // Check if customer record already exists
+      const { data: existingCustomer } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('profile_id', user.id)
+        .single();
+
+      if (existingCustomer) {
+        console.log('Customer record already exists');
+        return;
+      }
+
+      // Create a new customer record for Google OAuth users
+      const { error: customerError } = await supabase
+        .from('customers')
+        .insert({
+          profile_id: user.id,
+          name: user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'Customer',
+          address: 'Please update your address',
+          quantity: 1,
+          contact_number: user.phone || ''
+        });
+
+      if (customerError) {
+        console.error('Error creating customer record:', customerError);
+        toast({
+          title: "Warning",
+          description: "Account created but customer profile needs to be set up. Please contact support.",
+          variant: "destructive",
+        });
+      } else {
+        console.log('Customer record created successfully');
+      }
+    } catch (error) {
+      console.error('Error in createCustomerRecord:', error);
+    }
+  };
 
   const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,6 +101,12 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
 
       if (data.user) {
         console.log('User created successfully:', data.user.id);
+        
+        // For customer role, create customer record immediately
+        if (userRole === 'customer') {
+          await createCustomerRecord(data.user);
+        }
+        
         toast({
           title: "Success", 
           description: "Account created successfully! Please check your email for verification.",
@@ -136,6 +181,11 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
             variant: "destructive",
           });
           return;
+        }
+
+        // For customer role, ensure customer record exists
+        if (userRole === 'customer') {
+          await createCustomerRecord(data.user);
         }
 
         console.log('User signed in successfully:', data.user.id);
