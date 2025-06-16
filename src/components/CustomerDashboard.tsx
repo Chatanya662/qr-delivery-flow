@@ -4,12 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, Package, TrendingUp, Bell, User, CreditCard } from 'lucide-react';
+import { Calendar, Package, TrendingUp, Bell, User, CreditCard, LogOut } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import CustomerBilling from './CustomerBilling';
 import CustomerPaymentStatus from './CustomerPaymentStatus';
 import DeliveryHistory from './DeliveryHistory';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface Customer {
   id: string;
@@ -20,15 +21,20 @@ interface Customer {
 }
 
 interface CustomerDashboardProps {
-  customerId: string;
+  customerId?: string;
+  user?: SupabaseUser;
+  onSignOut?: () => void;
 }
 
-const CustomerDashboard = ({ customerId }: CustomerDashboardProps) => {
+const CustomerDashboard = ({ customerId, user, onSignOut }: CustomerDashboardProps) => {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentMonth] = useState(new Date().getMonth() + 1);
   const [currentYear] = useState(new Date().getFullYear());
   const { toast } = useToast();
+
+  // Determine the actual customer ID to use
+  const actualCustomerId = customerId || user?.id;
 
   // Helper function to get days in month
   const getDaysInMonth = (month: number, year: number) => {
@@ -47,8 +53,10 @@ const CustomerDashboard = ({ customerId }: CustomerDashboardProps) => {
   };
 
   useEffect(() => {
-    fetchCustomer();
-  }, [customerId]);
+    if (actualCustomerId) {
+      fetchCustomer();
+    }
+  }, [actualCustomerId]);
 
   const fetchCustomer = async () => {
     try {
@@ -56,7 +64,7 @@ const CustomerDashboard = ({ customerId }: CustomerDashboardProps) => {
       const { data, error } = await supabase
         .from('customers')
         .select('*')
-        .eq('id', customerId)
+        .eq('id', actualCustomerId)
         .single();
 
       if (error) {
@@ -122,14 +130,22 @@ const CustomerDashboard = ({ customerId }: CustomerDashboardProps) => {
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Welcome, {customer.name}!</h1>
-          <p className="text-gray-600">Your KC Farms milk delivery dashboard</p>
-          <div className="mt-2">
-            <Badge variant="outline" className="text-sm">
-              Current Period: {currentMonthFormatted}
-            </Badge>
+        <div className="mb-8 flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">Welcome, {customer.name}!</h1>
+            <p className="text-gray-600">Your KC Farms milk delivery dashboard</p>
+            <div className="mt-2">
+              <Badge variant="outline" className="text-sm">
+                Current Period: {currentMonthFormatted}
+              </Badge>
+            </div>
           </div>
+          {onSignOut && (
+            <Button variant="outline" onClick={onSignOut}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </Button>
+          )}
         </div>
 
         {/* Quick Stats */}
