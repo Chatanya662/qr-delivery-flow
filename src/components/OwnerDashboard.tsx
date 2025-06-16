@@ -214,33 +214,55 @@ const OwnerDashboard = () => {
       setDeleting(customerId);
       console.log('Starting deletion process for customer:', customerId);
       
-      // Use a transaction-like approach with proper error handling
-      // Step 1: Delete related records in the correct order
-      
-      // First delete customer_payments (if any)
+      // First, let's check if the customer exists
+      const { data: existingCustomer, error: checkError } = await supabase
+        .from('customers')
+        .select('id, name')
+        .eq('id', customerId)
+        .single();
+
+      if (checkError || !existingCustomer) {
+        console.error('Customer not found:', checkError);
+        setDeleting(null);
+        toast({
+          title: "Error",
+          description: "Customer not found in database",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log('Customer found, proceeding with deletion:', existingCustomer.name);
+
+      // Step 1: Delete customer_payments (if any)
+      console.log('Deleting customer payments...');
       const { error: paymentError } = await supabase
         .from('customer_payments')
         .delete()
         .eq('customer_id', customerId);
 
       if (paymentError) {
-        console.log('Note: No customer payments to delete or error:', paymentError.message);
-        // Continue anyway as payments might not exist
+        console.log('Payment deletion result:', paymentError.message);
+      } else {
+        console.log('Customer payments deleted successfully');
       }
 
-      // Then delete delivery_records (if any)
+      // Step 2: Delete delivery_records (if any)
+      console.log('Deleting delivery records...');
       const { error: deliveryError } = await supabase
         .from('delivery_records')
         .delete()
         .eq('customer_id', customerId);
 
       if (deliveryError) {
-        console.log('Note: No delivery records to delete or error:', deliveryError.message);
-        // Continue anyway as delivery records might not exist
+        console.log('Delivery records deletion result:', deliveryError.message);
+      } else {
+        console.log('Delivery records deleted successfully');
       }
 
-      // Finally delete the customer record - removed .single() to fix the error
-      const { error: customerError, data: deletedData, count } = await supabase
+      // Step 3: Finally delete the customer record
+      console.log('Deleting customer record...');
+      const { error: customerError, data: deletedData } = await supabase
         .from('customers')
         .delete()
         .eq('id', customerId)
@@ -259,29 +281,29 @@ const OwnerDashboard = () => {
 
       // Check if any customer was actually deleted
       if (!deletedData || deletedData.length === 0) {
-        console.log('No customer found with ID:', customerId);
+        console.log('No customer was deleted - this should not happen');
         setDeleting(null);
         toast({
           title: "Error",
-          description: "Customer not found or already deleted",
+          description: "Customer could not be deleted from database",
           variant: "destructive",
         });
         return;
       }
 
-      console.log('Customer deleted successfully:', deletedData[0]);
+      console.log('Customer deleted successfully from database:', deletedData[0]);
       
-      // Update local state immediately for better UX
+      // Update local state immediately
       setCustomers(prev => {
         const filtered = prev.filter(c => c.id !== customerId);
-        console.log('Local state updated - customers remaining:', filtered.length);
+        console.log(`Local state updated - customers remaining: ${filtered.length}`);
         return filtered;
       });
       
       setDeleting(null);
       toast({
         title: "Success",
-        description: "Customer and all related records deleted successfully",
+        description: `Customer "${existingCustomer.name}" and all related records deleted successfully`,
       });
       
     } catch (error) {
