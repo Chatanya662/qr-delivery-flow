@@ -239,13 +239,12 @@ const OwnerDashboard = () => {
         // Continue anyway as delivery records might not exist
       }
 
-      // Finally delete the customer record
-      const { error: customerError, data: deletedCustomer } = await supabase
+      // Finally delete the customer record - removed .single() to fix the error
+      const { error: customerError, data: deletedData, count } = await supabase
         .from('customers')
         .delete()
         .eq('id', customerId)
-        .select('*')
-        .single();
+        .select('*');
 
       if (customerError) {
         console.error('Error deleting customer:', customerError);
@@ -258,7 +257,19 @@ const OwnerDashboard = () => {
         return;
       }
 
-      console.log('Customer deleted successfully:', deletedCustomer);
+      // Check if any customer was actually deleted
+      if (!deletedData || deletedData.length === 0) {
+        console.log('No customer found with ID:', customerId);
+        setDeleting(null);
+        toast({
+          title: "Error",
+          description: "Customer not found or already deleted",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log('Customer deleted successfully:', deletedData[0]);
       
       // Update local state immediately for better UX
       setCustomers(prev => {
