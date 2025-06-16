@@ -61,17 +61,53 @@ const CustomerDashboard = ({ customerId, user, onSignOut }: CustomerDashboardPro
   const fetchCustomer = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('id', actualCustomerId)
-        .single();
+      let data, error;
+
+      if (customerId) {
+        // If customerId is provided, fetch by customer ID
+        const result = await supabase
+          .from('customers')
+          .select('*')
+          .eq('id', customerId)
+          .single();
+        data = result.data;
+        error = result.error;
+      } else if (user?.id) {
+        // If user is provided, try to fetch by profile_id first, then by id
+        let result = await supabase
+          .from('customers')
+          .select('*')
+          .eq('profile_id', user.id)
+          .maybeSingle();
+        
+        if (!result.data && !result.error) {
+          // If no customer found by profile_id, try by id
+          result = await supabase
+            .from('customers')
+            .select('*')
+            .eq('id', user.id)
+            .maybeSingle();
+        }
+        
+        data = result.data;
+        error = result.error;
+      }
 
       if (error) {
         console.error('Error fetching customer:', error);
         toast({
           title: "Error",
           description: "Failed to load customer information",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!data) {
+        console.log('No customer record found for user');
+        toast({
+          title: "No Customer Record",
+          description: "No customer profile found. Please contact support to set up your account.",
           variant: "destructive",
         });
         return;
