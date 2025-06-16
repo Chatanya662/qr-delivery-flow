@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { LogOut } from 'lucide-react';
@@ -155,7 +154,7 @@ const RoleDashboard = ({ user, userRole, onSignOut }: RoleDashboardProps) => {
   }
 
   if (userRole === 'customer') {
-    return <CustomerDashboard customerId={user.id} />;
+    return <CustomerDashboard user={user} onSignOut={handleSignOut} />;
   }
 
   if (userRole === 'delivery') {
