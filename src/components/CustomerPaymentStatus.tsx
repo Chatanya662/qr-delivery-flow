@@ -56,7 +56,15 @@ const CustomerPaymentStatus = ({ customerId }: CustomerPaymentStatusProps) => {
         return;
       }
 
-      setPayments(data || []);
+      // Sort payments by date descending (newest first)
+      const sortedPayments = (data || []).sort((a, b) => {
+        if (a.year !== b.year) {
+          return b.year - a.year; // Newer year first
+        }
+        return b.month - a.month; // Newer month first
+      });
+
+      setPayments(sortedPayments);
     } catch (error) {
       console.error('Error:', error);
       toast({
@@ -87,7 +95,7 @@ const CustomerPaymentStatus = ({ customerId }: CustomerPaymentStatusProps) => {
   const currentYear = currentDate.getFullYear();
 
   const currentPayment = payments.find(p => p.month === currentMonth && p.year === currentYear);
-  const recentPayments = payments.slice(0, 6);
+  const recentPayments = payments.slice(0, 6); // Already sorted by newest first
   
   const totalOutstanding = payments.reduce((sum, p) => sum + (p.amount_due - p.amount_paid), 0);
 
@@ -198,7 +206,7 @@ const CustomerPaymentStatus = ({ customerId }: CustomerPaymentStatusProps) => {
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Calendar className="w-5 h-5" />
-              Payment History
+              Payment History (Newest First)
             </CardTitle>
             <Button
               variant="outline"
