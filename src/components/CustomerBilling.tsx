@@ -38,7 +38,24 @@ const CustomerBilling = ({ billingData }: CustomerBillingProps) => {
     quantity
   } = billingData;
 
+  // Helper function to get days in month
+  const getDaysInMonth = (month: string, year: number) => {
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    const monthIndex = monthNames.indexOf(month);
+    return new Date(year, monthIndex + 1, 0).getDate();
+  };
+
+  // Helper function to format month with day range
+  const formatMonthWithDays = (month: string, year: number) => {
+    const daysInMonth = getDaysInMonth(month, year);
+    return `${month} ${year} (1 to ${daysInMonth} days)`;
+  };
+
   const successRate = ((deliveredDays / totalDays) * 100).toFixed(1);
+  const monthWithDays = formatMonthWithDays(month, year);
 
   const phonePayNumbers = ['+919703775498', '+919700567383'];
 
@@ -55,6 +72,7 @@ const CustomerBilling = ({ billingData }: CustomerBillingProps) => {
       ['KC Farms - Monthly Bill'],
       [''],
       ['Customer Name', customerName],
+      ['Billing Period', monthWithDays],
       ['Month', `${month} ${year}`],
       ['Quantity per Day', `${quantity} Liter(s)`],
       ['Price per Liter', `₹${pricePerLiter}`],
@@ -91,11 +109,25 @@ const CustomerBilling = ({ billingData }: CustomerBillingProps) => {
       <CardHeader className="text-center">
         <CardTitle className="flex items-center justify-center gap-2 text-lg">
           <DollarSign className="w-5 h-5 text-green-600" />
-          Monthly Bill - {month} {year}
+          Monthly Bill
         </CardTitle>
-        <p className="text-gray-600">{customerName}</p>
+        <div className="space-y-1">
+          <p className="text-gray-600">{customerName}</p>
+          <Badge variant="outline" className="text-xs">
+            {monthWithDays}
+          </Badge>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Billing Period Info */}
+        <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+          <div className="flex items-center gap-2 mb-1">
+            <Calendar className="w-4 h-4 text-blue-600" />
+            <span className="font-medium text-blue-800 text-sm">Billing Period</span>
+          </div>
+          <p className="text-sm text-blue-700">{monthWithDays}</p>
+        </div>
+
         {/* Quantity & Price Info */}
         <div className="bg-blue-50 p-4 rounded-lg">
           <div className="flex items-center gap-2 mb-2">

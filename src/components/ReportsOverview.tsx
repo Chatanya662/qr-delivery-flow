@@ -27,6 +27,40 @@ const ReportsOverview = () => {
   const [selectedMonth, setSelectedMonth] = useState('June');
   const [selectedYear, setSelectedYear] = useState('2025');
 
+  // Helper function to get days in month
+  const getDaysInMonth = (month: string, year: string) => {
+    const monthIndex = monthsInOrder.indexOf(month);
+    return new Date(parseInt(year), monthIndex + 1, 0).getDate();
+  };
+
+  // Helper function to format date in proper format
+  const formatDateRange = (month: string, year: string) => {
+    const daysInMonth = getDaysInMonth(month, year);
+    return `1 to ${daysInMonth} days`;
+  };
+
+  // Helper function to format individual date
+  const formatDayInMonth = (dateString: string) => {
+    const date = new Date(dateString);
+    const day = date.getDate();
+    const month = date.toLocaleDateString('en-US', { month: 'long' });
+    const year = date.getFullYear();
+    const daysInMonth = new Date(year, date.getMonth() + 1, 0).getDate();
+    
+    return {
+      dayOfMonth: day,
+      monthName: month,
+      year: year,
+      dayRange: `Day ${day} of ${daysInMonth}`,
+      fullDate: date.toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        month: 'short', 
+        day: 'numeric',
+        year: 'numeric'
+      })
+    };
+  };
+
   // Mock data for demonstration - sorted by date (newest first)
   const dailyReports: DailyReport[] = [
     { date: '2025-06-07', totalCustomers: 25, delivered: 23, missed: 2, totalRevenue: 5750 },
@@ -55,15 +89,19 @@ const ReportsOverview = () => {
   const yearsInOrder = ['2026', '2025', '2024'];
 
   const exportDailyReport = () => {
-    const headers = ['Date', 'Total Customers', 'Delivered', 'Missed', 'Success Rate %', 'Revenue ₹'];
-    const csvData = dailyReports.map(report => [
-      report.date,
-      report.totalCustomers,
-      report.delivered,
-      report.missed,
-      ((report.delivered / report.totalCustomers) * 100).toFixed(1),
-      report.totalRevenue
-    ]);
+    const headers = ['Date', 'Day Range', 'Total Customers', 'Delivered', 'Missed', 'Success Rate %', 'Revenue ₹'];
+    const csvData = dailyReports.map(report => {
+      const dateInfo = formatDayInMonth(report.date);
+      return [
+        report.date,
+        dateInfo.dayRange,
+        report.totalCustomers,
+        report.delivered,
+        report.missed,
+        ((report.delivered / report.totalCustomers) * 100).toFixed(1),
+        report.totalRevenue
+      ];
+    });
 
     const csvContent = [headers, ...csvData]
       .map(row => row.join(','))
@@ -79,10 +117,12 @@ const ReportsOverview = () => {
   };
 
   const exportMonthlyReport = () => {
+    const dateRange = formatDateRange(selectedMonth, selectedYear);
     const data = [
       ['KC Farms - Monthly Report'],
       [''],
       ['Month', `${selectedMonth} ${selectedYear}`],
+      ['Date Range', dateRange],
       ['Total Working Days', monthlyReport.totalDays],
       ['Active Customers', monthlyReport.activeCustomers],
       ['Overall Delivery Rate', `${monthlyReport.deliveryRate}%`],
@@ -140,6 +180,9 @@ const ReportsOverview = () => {
                 </SelectContent>
               </Select>
             </div>
+            <div className="ml-4 text-sm text-gray-600">
+              <span className="font-medium">Date Range:</span> {formatDateRange(selectedMonth, selectedYear)}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -148,7 +191,10 @@ const ReportsOverview = () => {
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
-            <CardTitle>Monthly Summary - {selectedMonth} {selectedYear}</CardTitle>
+            <div>
+              <CardTitle>Monthly Summary - {selectedMonth} {selectedYear}</CardTitle>
+              <p className="text-sm text-gray-600 mt-1">{formatDateRange(selectedMonth, selectedYear)}</p>
+            </div>
             <Button onClick={exportMonthlyReport} variant="outline" size="sm">
               <Download className="w-4 h-4 mr-2" />
               Export Monthly
@@ -197,6 +243,7 @@ const ReportsOverview = () => {
             {dailyReports.map((report) => {
               const successRate = ((report.delivered / report.totalCustomers) * 100).toFixed(1);
               const isToday = report.date === new Date().toISOString().split('T')[0];
+              const dateInfo = formatDayInMonth(report.date);
               
               return (
                 <div key={report.date} className={`p-4 border rounded-lg ${isToday ? 'border-blue-300 bg-blue-50' : ''}`}>
@@ -204,14 +251,12 @@ const ReportsOverview = () => {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <h3 className="font-semibold">
-                          {new Date(report.date).toLocaleDateString('en-US', { 
-                            weekday: 'long', 
-                            month: 'short', 
-                            day: 'numeric',
-                            year: 'numeric'
-                          })}
+                          {dateInfo.fullDate}
                         </h3>
                         {isToday && <Badge>Today</Badge>}
+                        <Badge variant="outline" className="text-xs">
+                          {dateInfo.dayRange}
+                        </Badge>
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>

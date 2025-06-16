@@ -32,6 +32,18 @@ const CustomerPaymentStatus = ({ customerId }: CustomerPaymentStatusProps) => {
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
+  // Helper function to get days in month
+  const getDaysInMonth = (month: number, year: number) => {
+    return new Date(year, month, 0).getDate();
+  };
+
+  // Helper function to format month with day range
+  const formatMonthWithDays = (month: number, year: number) => {
+    const monthName = months[month - 1];
+    const daysInMonth = getDaysInMonth(month, year);
+    return `${monthName} ${year} (1 to ${daysInMonth} days)`;
+  };
+
   useEffect(() => {
     fetchPayments();
   }, [customerId]);
@@ -112,6 +124,12 @@ const CustomerPaymentStatus = ({ customerId }: CustomerPaymentStatusProps) => {
         <CardContent>
           {currentPayment ? (
             <div className="space-y-4">
+              <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                <p className="text-sm font-medium text-blue-800">
+                  Payment Period: {formatMonthWithDays(currentMonth, currentYear)}
+                </p>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
                   <DollarSign className="w-8 h-8 text-blue-500" />
@@ -178,7 +196,9 @@ const CustomerPaymentStatus = ({ customerId }: CustomerPaymentStatusProps) => {
             <div className="text-center py-6">
               <CreditCard className="w-12 h-12 mx-auto mb-3 text-gray-300" />
               <p className="text-gray-500">No payment record for current month</p>
-              <p className="text-sm text-gray-400">Payment information will be available after deliveries</p>
+              <p className="text-sm text-gray-400">
+                Payment information will be available after deliveries ({formatMonthWithDays(currentMonth, currentYear)})
+              </p>
             </div>
           )}
         </CardContent>
@@ -233,6 +253,7 @@ const CustomerPaymentStatus = ({ customerId }: CustomerPaymentStatusProps) => {
                 {recentPayments.map((payment) => {
                   const isPaid = payment.amount_paid >= payment.amount_due;
                   const isPartiallyPaid = payment.amount_paid > 0 && payment.amount_paid < payment.amount_due;
+                  const monthDays = formatMonthWithDays(payment.month, payment.year);
 
                   return (
                     <div key={payment.id} className="p-3 border rounded-lg">
@@ -240,6 +261,7 @@ const CustomerPaymentStatus = ({ customerId }: CustomerPaymentStatusProps) => {
                         <div className="flex items-center gap-3">
                           <div>
                             <p className="font-medium">{months[payment.month - 1]} {payment.year}</p>
+                            <p className="text-xs text-gray-500">{monthDays}</p>
                             <p className="text-sm text-gray-600">
                               ₹{payment.amount_paid} / ₹{payment.amount_due}
                             </p>
