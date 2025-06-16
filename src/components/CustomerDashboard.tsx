@@ -1,15 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { User, LogOut, Phone, MapPin, Package, Calendar, Clock, Camera } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Calendar, Package, TrendingUp, Bell, User, CreditCard } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import type { User as SupabaseUser } from '@supabase/supabase-js';
-import DeliveryTracker from './DeliveryTracker';
-import ProfileSetupForm from './ProfileSetupForm';
+import CustomerBilling from './CustomerBilling';
 import CustomerPaymentStatus from './CustomerPaymentStatus';
+import DeliveryHistory from './DeliveryHistory';
 
 interface Customer {
   id: string;
@@ -17,112 +17,64 @@ interface Customer {
   address: string;
   quantity: number;
   contact_number?: string;
-  profile_id?: string;
-}
-
-interface Profile {
-  id: string;
-  email: string;
-  full_name: string | null;
-  contact_number: string | null;
-  address: string | null;
-  role: string;
 }
 
 interface CustomerDashboardProps {
-  user: SupabaseUser;
-  onSignOut: () => void;
+  customerId: string;
 }
 
-const CustomerDashboard = ({ user, onSignOut }: CustomerDashboardProps) => {
-  const [customerData, setCustomerData] = useState<Customer | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
+const CustomerDashboard = ({ customerId }: CustomerDashboardProps) => {
+  const [customer, setCustomer] = useState<Customer | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showSetupForm, setShowSetupForm] = useState(false);
+  const [currentMonth] = useState(new Date().getMonth() + 1);
+  const [currentYear] = useState(new Date().getFullYear());
   const { toast } = useToast();
 
+  // Helper function to get days in month
+  const getDaysInMonth = (month: number, year: number) => {
+    return new Date(year, month, 0).getDate();
+  };
+
+  // Helper function to format month with day range
+  const formatMonthWithDays = (month: number, year: number) => {
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    const monthName = monthNames[month - 1];
+    const daysInMonth = getDaysInMonth(month, year);
+    return `${monthName} ${year} (1 to ${daysInMonth} days)`;
+  };
+
   useEffect(() => {
-    fetchUserData();
+    fetchCustomer();
+  }, [customerId]);
 
-    // Set up real-time subscription for customer updates and deletions
-    const subscription = supabase
-      .channel('customer-dashboard-updates')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'customers',
-        filter: `profile_id=eq.${user.id}`
-      }, (payload) => {
-        console.log('Customer data changed:', payload);
-        if (payload.eventType === 'DELETE') {
-          // Customer was deleted, clear the data
-          setCustomerData(null);
-          toast({
-            title: "Account Removed",
-            description: "Your customer account has been removed by the owner",
-            variant: "destructive",
-          });
-        } else if (payload.eventType === 'UPDATE') {
-          // Customer was updated
-          setCustomerData(payload.new as Customer);
-        } else if (payload.eventType === 'INSERT') {
-          // New customer record created
-          setCustomerData(payload.new as Customer);
-        }
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(subscription);
-    };
-  }, [user.id]);
-
-  const fetchUserData = async () => {
+  const fetchCustomer = async () => {
     try {
       setLoading(true);
-      
-      // First, fetch the user's profile
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
+      const { data, error } = await supabase
+        .from('customers')
         .select('*')
-        .eq('id', user.id)
+        .eq('id', customerId)
         .single();
 
-      if (profileError) {
-        console.error('Error fetching profile:', profileError);
+      if (error) {
+        console.error('Error fetching customer:', error);
         toast({
           title: "Error",
-          description: "Failed to load profile data",
+          description: "Failed to load customer information",
           variant: "destructive",
         });
         return;
       }
 
-      setProfile(profileData);
-
-      // Then, try to find a customer record linked to this profile
-      const { data: customerData, error: customerError } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('profile_id', user.id)
-        .maybeSingle();
-
-      if (customerError && customerError.code !== 'PGRST116') {
-        console.error('Error fetching customer data:', customerError);
-      }
-
-      if (customerData) {
-        setCustomerData(customerData);
-      } else {
-        // If no customer record exists, show setup form for OAuth users
-        console.log('No customer record found for this user');
-        setCustomerData(null);
-      }
+      setCustomer(data);
     } catch (error) {
       console.error('Error:', error);
       toast({
         title: "Error",
-        description: "Something went wrong while loading your data",
+        description: "Something went wrong while loading customer data",
         variant: "destructive",
       });
     } finally {
@@ -130,140 +82,132 @@ const CustomerDashboard = ({ user, onSignOut }: CustomerDashboardProps) => {
     }
   };
 
-  const handleProfileCreated = () => {
-    setShowSetupForm(false);
-    fetchUserData(); // Refresh data after profile is created
-  };
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+        <span className="ml-2 text-gray-500">Loading customer dashboard...</span>
+      </div>
+    );
+  }
+
+  if (!customer) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading your dashboard...</p>
+          <User className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+          <p className="text-lg text-gray-500">Customer not found</p>
         </div>
       </div>
     );
   }
 
+  const currentMonthFormatted = formatMonthWithDays(currentMonth, currentYear);
+
+  // Mock billing data - this would come from your billing calculations
+  const billingData = {
+    customerId: customer.id,
+    customerName: customer.name,
+    month: new Date().toLocaleString('default', { month: 'long' }),
+    year: currentYear,
+    pricePerLiter: 60, // This would come from your pricing configuration
+    deliveredDays: 25, // This would be calculated from delivery records
+    missedDays: 5,
+    totalDays: getDaysInMonth(currentMonth, currentYear),
+    totalAmount: 25 * customer.quantity * 60, // delivered_days * quantity * price_per_liter
+    quantity: customer.quantity
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm border-b">
-        <div className="max-w-7xl mx-auto p-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <User className="w-6 h-6 text-blue-500" />
-            <div>
-              <h1 className="font-semibold">Welcome back!</h1>
-              <p className="text-sm text-gray-600">{profile?.full_name || user.email}</p>
-            </div>
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">Welcome, {customer.name}!</h1>
+          <p className="text-gray-600">Your KC Farms milk delivery dashboard</p>
+          <div className="mt-2">
+            <Badge variant="outline" className="text-sm">
+              Current Period: {currentMonthFormatted}
+            </Badge>
           </div>
-          <Button variant="outline" onClick={onSignOut}>
-            <LogOut className="w-4 h-4 mr-2" />
-            Sign Out
-          </Button>
         </div>
-      </div>
 
-      <div className="max-w-6xl mx-auto p-4">
-        {customerData ? (
-          <div className="space-y-6">
-            {/* Customer Info Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="w-5 h-5" />
-                  Your Account Details
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
-                    <User className="w-8 h-8 text-blue-500" />
-                    <div>
-                      <p className="text-sm text-gray-600">Customer Name</p>
-                      <p className="font-semibold">{customerData.name}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
-                    <Package className="w-8 h-8 text-green-500" />
-                    <div>
-                      <p className="text-sm text-gray-600">Daily Quantity</p>
-                      <p className="font-semibold">{customerData.quantity}L</p>
-                    </div>
-                  </div>
-
-                  {customerData.contact_number && (
-                    <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg">
-                      <Phone className="w-8 h-8 text-purple-500" />
-                      <div>
-                        <p className="text-sm text-gray-600">Contact</p>
-                        <p className="font-semibold">{customerData.contact_number}</p>
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-lg">
-                    <MapPin className="w-8 h-8 text-orange-500" />
-                    <div>
-                      <p className="text-sm text-gray-600">Address</p>
-                      <p className="font-semibold text-sm">{customerData.address}</p>
-                    </div>
-                  </div>
+        {/* Quick Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card className="border-l-4 border-l-blue-500">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 font-medium">Daily Quantity</p>
+                  <p className="text-3xl font-bold text-blue-600">{customer.quantity}L</p>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Payment Status */}
-            <CustomerPaymentStatus customerId={customerData.id} />
-
-            {/* Delivery Tracker */}
-            <DeliveryTracker 
-              customerId={customerData.id}
-              customerName={customerData.name}
-              userRole="customer"
-            />
-          </div>
-        ) : showSetupForm ? (
-          <ProfileSetupForm
-            userId={user.id}
-            userEmail={user.email || ''}
-            onProfileCreated={handleProfileCreated}
-          />
-        ) : (
-          <Card>
-            <CardContent className="text-center py-12">
-              <User className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-              <h2 className="text-xl font-semibold mb-2">Complete Your Profile</h2>
-              <div className="space-y-2 mb-6">
-                <p className="text-gray-600">
-                  <strong>Name:</strong> {profile?.full_name || 'Not provided'}
-                </p>
-                <p className="text-gray-600">
-                  <strong>Email:</strong> {profile?.email}
-                </p>
-                {profile?.contact_number && (
-                  <p className="text-gray-600">
-                    <strong>Contact:</strong> {profile.contact_number}
-                  </p>
-                )}
-                {profile?.address && (
-                  <p className="text-gray-600">
-                    <strong>Address:</strong> {profile.address}
-                  </p>
-                )}
+                <Package className="w-12 h-12 text-blue-500" />
               </div>
-              <p className="text-sm text-gray-500 mb-6">
-                To start receiving milk deliveries, please complete your delivery profile with your address and preferences.
-              </p>
-              <Button onClick={() => setShowSetupForm(true)} size="lg">
-                <User className="w-4 h-4 mr-2" />
-                Complete Profile Setup
-              </Button>
             </CardContent>
           </Card>
-        )}
+
+          <Card className="border-l-4 border-l-green-500">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 font-medium">This Month</p>
+                  <p className="text-3xl font-bold text-green-600">{billingData.deliveredDays}</p>
+                  <p className="text-xs text-gray-500">Deliveries</p>
+                </div>
+                <TrendingUp className="w-12 h-12 text-green-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-orange-500">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 font-medium">Success Rate</p>
+                  <p className="text-3xl font-bold text-orange-600">
+                    {((billingData.deliveredDays / billingData.totalDays) * 100).toFixed(1)}%
+                  </p>
+                </div>
+                <Calendar className="w-12 h-12 text-orange-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-purple-500">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 font-medium">Amount Due</p>
+                  <p className="text-2xl font-bold text-purple-600">₹{billingData.totalAmount}</p>
+                </div>
+                <CreditCard className="w-12 h-12 text-purple-500" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Main Content Tabs */}
+        <Tabs defaultValue="billing" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="billing">Monthly Bill</TabsTrigger>
+            <TabsTrigger value="payments">Payment Status</TabsTrigger>
+            <TabsTrigger value="history">Delivery History</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="billing">
+            <div className="flex justify-center">
+              <CustomerBilling billingData={billingData} />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="payments">
+            <CustomerPaymentStatus customerId={customer.id} />
+          </TabsContent>
+
+          <TabsContent value="history">
+            <DeliveryHistory customerId={customer.id} />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
