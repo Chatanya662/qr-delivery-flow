@@ -214,51 +214,56 @@ const OwnerDashboard = () => {
       setDeleting(customerId);
       console.log('Starting deletion process for customer:', customerId);
       
-      // Step 1: Delete from delivery_records first (foreign key constraint)
-      const { error: deliveryError } = await supabase
-        .from('delivery_records')
-        .delete()
-        .eq('customer_id', customerId);
-
-      if (deliveryError) {
-        console.error('Error deleting delivery records:', deliveryError);
-        // Continue anyway as this might not exist
-      }
-
-      // Step 2: Delete from customer_payments
+      // Use a transaction-like approach with proper error handling
+      // Step 1: Delete related records in the correct order
+      
+      // First delete customer_payments (if any)
       const { error: paymentError } = await supabase
         .from('customer_payments')
         .delete()
         .eq('customer_id', customerId);
 
       if (paymentError) {
-        console.error('Error deleting payment records:', paymentError);
-        // Continue anyway as this might not exist
+        console.log('Note: No customer payments to delete or error:', paymentError.message);
+        // Continue anyway as payments might not exist
       }
 
-      // Step 3: Delete the customer record itself
-      const { error: customerError } = await supabase
+      // Then delete delivery_records (if any)
+      const { error: deliveryError } = await supabase
+        .from('delivery_records')
+        .delete()
+        .eq('customer_id', customerId);
+
+      if (deliveryError) {
+        console.log('Note: No delivery records to delete or error:', deliveryError.message);
+        // Continue anyway as delivery records might not exist
+      }
+
+      // Finally delete the customer record
+      const { error: customerError, data: deletedCustomer } = await supabase
         .from('customers')
         .delete()
-        .eq('id', customerId);
+        .eq('id', customerId)
+        .select('*')
+        .single();
 
       if (customerError) {
         console.error('Error deleting customer:', customerError);
         setDeleting(null);
         toast({
           title: "Error",
-          description: "Failed to delete customer: " + customerError.message,
+          description: `Failed to delete customer: ${customerError.message}`,
           variant: "destructive",
         });
         return;
       }
 
-      console.log('Customer deleted successfully from database');
+      console.log('Customer deleted successfully:', deletedCustomer);
       
-      // Manually update local state as backup (real-time should handle this)
+      // Update local state immediately for better UX
       setCustomers(prev => {
         const filtered = prev.filter(c => c.id !== customerId);
-        console.log('Manual state update - customers remaining:', filtered.length);
+        console.log('Local state updated - customers remaining:', filtered.length);
         return filtered;
       });
       
@@ -269,11 +274,11 @@ const OwnerDashboard = () => {
       });
       
     } catch (error) {
-      console.error('Error during deletion:', error);
+      console.error('Unexpected error during deletion:', error);
       setDeleting(null);
       toast({
         title: "Error",
-        description: "Something went wrong while deleting customer",
+        description: "An unexpected error occurred while deleting the customer",
         variant: "destructive",
       });
     }
@@ -510,7 +515,7 @@ const OwnerDashboard = () => {
                               variant="outline"
                               size="sm"
                               onClick={() => handleDeleteCustomer(customer.id)}
-                              className="text-red-600 hover:text-red-700"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
                               disabled={deleting === customer.id}
                             >
                               {deleting === customer.id ? (
