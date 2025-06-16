@@ -27,14 +27,14 @@ const ReportsOverview = () => {
   const [selectedMonth, setSelectedMonth] = useState('June');
   const [selectedYear, setSelectedYear] = useState('2025');
 
-  // Mock data for demonstration
+  // Mock data for demonstration - sorted by date (newest first)
   const dailyReports: DailyReport[] = [
     { date: '2025-06-07', totalCustomers: 25, delivered: 23, missed: 2, totalRevenue: 5750 },
     { date: '2025-06-06', totalCustomers: 25, delivered: 24, missed: 1, totalRevenue: 6000 },
     { date: '2025-06-05', totalCustomers: 25, delivered: 22, missed: 3, totalRevenue: 5500 },
     { date: '2025-06-04', totalCustomers: 25, delivered: 25, missed: 0, totalRevenue: 6250 },
     { date: '2025-06-03', totalCustomers: 25, delivered: 21, missed: 4, totalRevenue: 5250 },
-  ];
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const monthlyReport: MonthlyReport = {
     month: 'June',
@@ -44,6 +44,15 @@ const ReportsOverview = () => {
     totalRevenue: 172500,
     activeCustomers: 25
   };
+
+  // Ordered months array
+  const monthsInOrder = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  // Years in descending order (newest first)
+  const yearsInOrder = ['2026', '2025', '2024'];
 
   const exportDailyReport = () => {
     const headers = ['Date', 'Total Customers', 'Delivered', 'Missed', 'Success Rate %', 'Revenue ₹'];
@@ -112,9 +121,7 @@ const ReportsOverview = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {['January', 'February', 'March', 'April', 'May', 'June', 
-                    'July', 'August', 'September', 'October', 'November', 'December']
-                    .map(month => (
+                  {monthsInOrder.map(month => (
                     <SelectItem key={month} value={month}>{month}</SelectItem>
                   ))}
                 </SelectContent>
@@ -127,9 +134,9 @@ const ReportsOverview = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="2024">2024</SelectItem>
-                  <SelectItem value="2025">2025</SelectItem>
-                  <SelectItem value="2026">2026</SelectItem>
+                  {yearsInOrder.map(year => (
+                    <SelectItem key={year} value={year}>{year}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -200,7 +207,8 @@ const ReportsOverview = () => {
                           {new Date(report.date).toLocaleDateString('en-US', { 
                             weekday: 'long', 
                             month: 'short', 
-                            day: 'numeric' 
+                            day: 'numeric',
+                            year: 'numeric'
                           })}
                         </h3>
                         {isToday && <Badge>Today</Badge>}

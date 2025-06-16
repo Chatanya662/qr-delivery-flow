@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -80,7 +79,7 @@ const DeliveryTracker = ({ customerId, customerName, userRole }: DeliveryTracker
         .eq('customer_id', customerId)
         .gte('delivery_date', startOfMonth)
         .lte('delivery_date', endOfMonth)
-        .order('delivery_date', { ascending: true });
+        .order('delivery_date', { ascending: false }); // Order by date descending (newest first)
 
       if (error) {
         console.error('Error fetching delivery records:', error);
@@ -93,7 +92,7 @@ const DeliveryTracker = ({ customerId, customerName, userRole }: DeliveryTracker
       const records: DeliveryRecord[] = [];
       const daysInMonth = new Date(year, month + 1, 0).getDate();
       
-      for (let day = 1; day <= daysInMonth; day++) {
+      for (let day = daysInMonth; day >= 1; day--) { // Start from last day and go backwards
         const dateStr = `${year}-${(month + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
         const dbRecord = data.find(record => record.delivery_date === dateStr);
         
@@ -132,12 +131,12 @@ const DeliveryTracker = ({ customerId, customerName, userRole }: DeliveryTracker
     }
   };
 
-  // Generate current month data (fallback for demo)
+  // Generate current month data (fallback for demo) - sorted by date descending
   const generateMonthData = (): DeliveryRecord[] => {
     const daysInMonth = 30; // June has 30 days
     const records: DeliveryRecord[] = [];
     
-    for (let day = 1; day <= daysInMonth; day++) {
+    for (let day = daysInMonth; day >= 1; day--) { // Start from last day
       const date = `2025-06-${day.toString().padStart(2, '0')}`;
       let status: DeliveryRecord['status'] = 'missed';
       let time: string | undefined;
