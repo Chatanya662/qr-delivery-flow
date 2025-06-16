@@ -155,7 +155,7 @@ const RoleDashboard = ({ user, userRole, onSignOut }: RoleDashboardProps) => {
   }
 
   if (userRole === 'customer') {
-    return <CustomerDashboard user={user} onSignOut={handleSignOut} />;
+    return <CustomerDashboard customerId={user.id} />;
   }
 
   if (userRole === 'delivery') {
