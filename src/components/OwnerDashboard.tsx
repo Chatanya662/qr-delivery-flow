@@ -29,6 +29,7 @@ const OwnerDashboard = () => {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [newCustomer, setNewCustomer] = useState({ name: '', address: '', quantity: 1, contact_number: '' });
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [updating, setUpdating] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -48,6 +49,7 @@ const OwnerDashboard = () => {
           });
         } else if (payload.eventType === 'UPDATE') {
           setCustomers(prev => prev.map(c => c.id === payload.new.id ? payload.new as Customer : c));
+          setUpdating(null);
           toast({
             title: "Customer Updated",
             description: "Customer has been updated successfully",
@@ -169,33 +171,50 @@ const OwnerDashboard = () => {
   const handleUpdateCustomer = async () => {
     if (editingCustomer) {
       try {
-        const { error } = await supabase
+        setUpdating(editingCustomer.id);
+        console.log('Updating customer:', editingCustomer);
+        
+        const updateData = {
+          name: editingCustomer.name.trim(),
+          address: editingCustomer.address.trim(),
+          quantity: Number(editingCustomer.quantity),
+          contact_number: editingCustomer.contact_number?.trim() || null
+        };
+
+        console.log('Update data:', updateData);
+
+        const { data, error } = await supabase
           .from('customers')
-          .update({
-            name: editingCustomer.name,
-            address: editingCustomer.address,
-            quantity: editingCustomer.quantity,
-            contact_number: editingCustomer.contact_number || null
-          })
-          .eq('id', editingCustomer.id);
+          .update(updateData)
+          .eq('id', editingCustomer.id)
+          .select()
+          .single();
 
         if (error) {
           console.error('Error updating customer:', error);
+          setUpdating(null);
           toast({
             title: "Error",
-            description: "Failed to update customer",
+            description: `Failed to update customer: ${error.message}`,
             variant: "destructive",
           });
           return;
         }
 
+        console.log('Customer updated successfully:', data);
+        
+        // Update local state immediately for better UX
+        setCustomers(prev => prev.map(c => c.id === editingCustomer.id ? data : c));
         setEditingCustomer(null);
+        setUpdating(null);
+        
         toast({
           title: "Success",
           description: "Customer updated successfully",
         });
       } catch (error) {
         console.error('Error:', error);
+        setUpdating(null);
         toast({
           title: "Error",
           description: "Something went wrong while updating customer",
@@ -527,6 +546,12 @@ const OwnerDashboard = () => {
                               <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
                                 Active
                               </Badge>
+                              {updating === customer.id && (
+                                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                  Updating...
+                                </Badge>
+                              )}
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-gray-600">
                               <p><span className="font-medium">ID:</span> {customer.id}</p>
@@ -550,7 +575,7 @@ const OwnerDashboard = () => {
                               variant="outline"
                               size="sm"
                               onClick={() => setEditingCustomer(customer)}
-                              disabled={deleting === customer.id}
+                              disabled={deleting === customer.id || updating === customer.id}
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
@@ -559,7 +584,7 @@ const OwnerDashboard = () => {
                               size="sm"
                               onClick={() => handleDeleteCustomer(customer.id)}
                               className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              disabled={deleting === customer.id}
+                              disabled={deleting === customer.id || updating === customer.id}
                             >
                               {deleting === customer.id ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -603,7 +628,7 @@ const OwnerDashboard = () => {
             {editingCustomer && (
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Name</label>
+                  <label className="text-sm font-medium text-gray-700 block mb-1">Name</label>
                   <Input
                     value={editingCustomer.name}
                     onChange={(e) => setEditingCustomer({...editingCustomer, name: e.target.value})}
@@ -611,7 +636,7 @@ const OwnerDashboard = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Contact Number</label>
+                  <label className="text-sm font-medium text-gray-700 block mb-1">Contact Number</label>
                   <Input
                     value={editingCustomer.contact_number || ''}
                     onChange={(e) => setEditingCustomer({...editingCustomer, contact_number: e.target.value})}
@@ -619,7 +644,7 @@ const OwnerDashboard = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Address</label>
+                  <label className="text-sm font-medium text-gray-700 block mb-1">Address</label>
                   <Input
                     value={editingCustomer.address}
                     onChange={(e) => setEditingCustomer({...editingCustomer, address: e.target.value})}
@@ -627,7 +652,7 @@ const OwnerDashboard = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Quantity (L)</label>
+                  <label className="text-sm font-medium text-gray-700 block mb-1">Quantity (L)</label>
                   <Input
                     type="number"
                     value={editingCustomer.quantity}
@@ -637,10 +662,26 @@ const OwnerDashboard = () => {
                   />
                 </div>
                 <div className="flex gap-3 pt-4">
-                  <Button onClick={handleUpdateCustomer} className="flex-1">
-                    Update Customer
+                  <Button 
+                    onClick={handleUpdateCustomer} 
+                    className="flex-1"
+                    disabled={updating === editingCustomer.id}
+                  >
+                    {updating === editingCustomer.id ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Updating...
+                      </>
+                    ) : (
+                      'Update Customer'
+                    )}
                   </Button>
-                  <Button variant="outline" onClick={() => setEditingCustomer(null)} className="flex-1">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setEditingCustomer(null)} 
+                    className="flex-1"
+                    disabled={updating === editingCustomer.id}
+                  >
                     Cancel
                   </Button>
                 </div>
