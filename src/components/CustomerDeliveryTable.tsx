@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -7,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar, Eye, Download, Image } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import DeliveryPhotos from './DeliveryPhotos';
 
 interface DeliveryRecord {
   delivery_date: string;
@@ -28,6 +28,7 @@ const CustomerDeliveryTable = ({ customerId, customerName, month, year }: Custom
   const [deliveryRecords, setDeliveryRecords] = useState<DeliveryRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [showPhotosModal, setShowPhotosModal] = useState(false);
   const { toast } = useToast();
 
   const currentMonth = month || new Date().getMonth() + 1;
@@ -83,7 +84,31 @@ const CustomerDeliveryTable = ({ customerId, customerName, month, year }: Custom
     const daysInMonth = getDaysInMonth(currentMonth, currentYear);
     const records: DeliveryRecord[] = [];
 
-    for (let day = 1; day <= daysInMonth; day++) {
+    // Create array of all days in proper order (1-28/29, then 30, then 31)
+    const dayOrder: number[] = [];
+    
+    // Add days 1-28
+    for (let day = 1; day <= 28; day++) {
+      dayOrder.push(day);
+    }
+    
+    // Add day 29 if it exists
+    if (daysInMonth >= 29) {
+      dayOrder.push(29);
+    }
+    
+    // Add day 30 if it exists
+    if (daysInMonth >= 30) {
+      dayOrder.push(30);
+    }
+    
+    // Add day 31 if it exists
+    if (daysInMonth >= 31) {
+      dayOrder.push(31);
+    }
+
+    // Generate records in the correct order
+    dayOrder.forEach(day => {
       const dateStr = `${currentYear}-${currentMonth.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
       const dbRecord = dbRecords.find(record => record.delivery_date === dateStr);
 
@@ -109,7 +134,7 @@ const CustomerDeliveryTable = ({ customerId, customerName, month, year }: Custom
           notes: undefined
         });
       }
-    }
+    });
 
     return records;
   };
@@ -118,7 +143,30 @@ const CustomerDeliveryTable = ({ customerId, customerName, month, year }: Custom
     const daysInMonth = getDaysInMonth(currentMonth, currentYear);
     const records: DeliveryRecord[] = [];
 
-    for (let day = 1; day <= daysInMonth; day++) {
+    // Create array of all days in proper order (1-28/29, then 30, then 31)
+    const dayOrder: number[] = [];
+    
+    // Add days 1-28
+    for (let day = 1; day <= 28; day++) {
+      dayOrder.push(day);
+    }
+    
+    // Add day 29 if it exists
+    if (daysInMonth >= 29) {
+      dayOrder.push(29);
+    }
+    
+    // Add day 30 if it exists
+    if (daysInMonth >= 30) {
+      dayOrder.push(30);
+    }
+    
+    // Add day 31 if it exists
+    if (daysInMonth >= 31) {
+      dayOrder.push(31);
+    }
+
+    dayOrder.forEach(day => {
       const dateStr = `${currentYear}-${currentMonth.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
       let status: 'delivered' | 'missed' | 'holiday' = 'missed';
       let time: string | undefined;
@@ -140,7 +188,7 @@ const CustomerDeliveryTable = ({ customerId, customerName, month, year }: Custom
         photo_url: photoUrl,
         quantity_delivered: status === 'delivered' ? 2 : 0
       });
-    }
+    });
 
     setDeliveryRecords(records);
   };
@@ -236,7 +284,7 @@ const CustomerDeliveryTable = ({ customerId, customerName, month, year }: Custom
   return (
     <div className="space-y-6">
       {/* Summary Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold text-green-600">{deliveredDays}</div>
@@ -259,6 +307,18 @@ const CustomerDeliveryTable = ({ customerId, customerName, month, year }: Custom
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold text-purple-600">{deliveryRecords.length}</div>
             <div className="text-sm text-gray-600">Total Days</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <Button 
+              onClick={() => setShowPhotosModal(true)}
+              variant="outline"
+              className="w-full"
+            >
+              <Eye className="w-4 h-4 mr-2" />
+              View Images
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -358,6 +418,15 @@ const CustomerDeliveryTable = ({ customerId, customerName, month, year }: Custom
           </div>
         </div>
       )}
+
+      {/* Delivery Photos Modal */}
+      <DeliveryPhotos
+        isOpen={showPhotosModal}
+        onClose={() => setShowPhotosModal(false)}
+        customerId={customerId}
+        customerName={customerName}
+        userRole="customer"
+      />
     </div>
   );
 };
