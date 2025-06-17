@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import CustomerBilling from './CustomerBilling';
 import CustomerPaymentStatus from './CustomerPaymentStatus';
 import DeliveryHistory from './DeliveryHistory';
+import CustomerDeliveryTable from './CustomerDeliveryTable';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface Customer {
@@ -308,12 +309,22 @@ const CustomerDashboard = ({ customerId, user, onSignOut }: CustomerDashboardPro
         </div>
 
         {/* Main Content Tabs */}
-        <Tabs defaultValue="billing" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs defaultValue="delivery-table" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="delivery-table">Excel View</TabsTrigger>
             <TabsTrigger value="billing">Monthly Bill</TabsTrigger>
             <TabsTrigger value="payments">Payment Status</TabsTrigger>
             <TabsTrigger value="history">Delivery History</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="delivery-table">
+            <CustomerDeliveryTable 
+              customerId={customer.id}
+              customerName={customer.name}
+              month={currentMonth}
+              year={currentYear}
+            />
+          </TabsContent>
 
           <TabsContent value="billing">
             <div className="flex justify-center">
