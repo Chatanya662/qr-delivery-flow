@@ -29,8 +29,6 @@ interface CustomerDashboardProps {
 const CustomerDashboard = ({ customerId, user, onSignOut }: CustomerDashboardProps) => {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [loading, setLoading] = useState(true);
-  const [currentMonth] = useState(new Date().getMonth() + 1);
-  const [currentYear] = useState(new Date().getFullYear());
   const [currentDate] = useState(new Date());
   const { toast } = useToast();
 
@@ -67,6 +65,7 @@ const CustomerDashboard = ({ customerId, user, onSignOut }: CustomerDashboardPro
       dayNumber: today.getDate(),
       monthName: monthNames[today.getMonth()],
       year: today.getFullYear(),
+      month: today.getMonth() + 1,
       formattedDate: today.toLocaleDateString('en-US', { 
         weekday: 'long', 
         year: 'numeric', 
@@ -170,19 +169,19 @@ const CustomerDashboard = ({ customerId, user, onSignOut }: CustomerDashboardPro
     );
   }
 
-  const currentMonthFormatted = formatMonthWithDays(currentMonth, currentYear);
   const dateInfo = getCurrentDateInfo();
+  const currentMonthFormatted = formatMonthWithDays(dateInfo.month, dateInfo.year);
 
   // Mock billing data - this would come from your billing calculations
   const billingData = {
     customerId: customer.id,
     customerName: customer.name,
     month: new Date().toLocaleString('default', { month: 'long' }),
-    year: currentYear,
+    year: dateInfo.year,
     pricePerLiter: 60, // This would come from your pricing configuration
     deliveredDays: 25, // This would be calculated from delivery records
     missedDays: 5,
-    totalDays: getDaysInMonth(currentMonth, currentYear),
+    totalDays: getDaysInMonth(dateInfo.month, dateInfo.year),
     totalAmount: 25 * customer.quantity * 60, // delivered_days * quantity * price_per_liter
     quantity: customer.quantity
   };
@@ -235,11 +234,11 @@ const CustomerDashboard = ({ customerId, user, onSignOut }: CustomerDashboardPro
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="text-center p-3 bg-blue-50 rounded-lg">
-                <div className="text-2xl font-bold text-blue-600">{currentMonth}</div>
+                <div className="text-2xl font-bold text-blue-600">{dateInfo.month}</div>
                 <div className="text-sm text-gray-600">Current Month</div>
               </div>
               <div className="text-center p-3 bg-green-50 rounded-lg">
-                <div className="text-2xl font-bold text-green-600">{currentYear}</div>
+                <div className="text-2xl font-bold text-green-600">{dateInfo.year}</div>
                 <div className="text-sm text-gray-600">Current Year</div>
               </div>
               <div className="text-center p-3 bg-orange-50 rounded-lg">
@@ -247,7 +246,7 @@ const CustomerDashboard = ({ customerId, user, onSignOut }: CustomerDashboardPro
                 <div className="text-sm text-gray-600">Today's Date</div>
               </div>
               <div className="text-center p-3 bg-purple-50 rounded-lg">
-                <div className="text-2xl font-bold text-purple-600">{getDaysInMonth(currentMonth, currentYear)}</div>
+                <div className="text-2xl font-bold text-purple-600">{getDaysInMonth(dateInfo.month, dateInfo.year)}</div>
                 <div className="text-sm text-gray-600">Days in Month</div>
               </div>
             </div>
@@ -321,8 +320,6 @@ const CustomerDashboard = ({ customerId, user, onSignOut }: CustomerDashboardPro
             <CustomerDeliveryTable 
               customerId={customer.id}
               customerName={customer.name}
-              month={currentMonth}
-              year={currentYear}
             />
           </TabsContent>
 

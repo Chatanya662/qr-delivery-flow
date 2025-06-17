@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, Eye, Download, Image } from 'lucide-react';
+import { Calendar, Eye, Download, Image, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import DeliveryPhotos from './DeliveryPhotos';
@@ -29,10 +29,9 @@ const CustomerDeliveryTable = ({ customerId, customerName, month, year }: Custom
   const [loading, setLoading] = useState(true);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [showPhotosModal, setShowPhotosModal] = useState(false);
+  const [currentMonth, setCurrentMonth] = useState(month || new Date().getMonth() + 1);
+  const [currentYear, setCurrentYear] = useState(year || new Date().getFullYear());
   const { toast } = useToast();
-
-  const currentMonth = month || new Date().getMonth() + 1;
-  const currentYear = year || new Date().getFullYear();
 
   useEffect(() => {
     fetchDeliveryRecords();
@@ -84,31 +83,8 @@ const CustomerDeliveryTable = ({ customerId, customerName, month, year }: Custom
     const daysInMonth = getDaysInMonth(currentMonth, currentYear);
     const records: DeliveryRecord[] = [];
 
-    // Create array of all days in proper order (1-28/29, then 30, then 31)
-    const dayOrder: number[] = [];
-    
-    // Add days 1-28
-    for (let day = 1; day <= 28; day++) {
-      dayOrder.push(day);
-    }
-    
-    // Add day 29 if it exists
-    if (daysInMonth >= 29) {
-      dayOrder.push(29);
-    }
-    
-    // Add day 30 if it exists
-    if (daysInMonth >= 30) {
-      dayOrder.push(30);
-    }
-    
-    // Add day 31 if it exists
-    if (daysInMonth >= 31) {
-      dayOrder.push(31);
-    }
-
-    // Generate records in the correct order
-    dayOrder.forEach(day => {
+    // Generate records in normal date order (1, 2, 3, ..., 28/29/30/31)
+    for (let day = 1; day <= daysInMonth; day++) {
       const dateStr = `${currentYear}-${currentMonth.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
       const dbRecord = dbRecords.find(record => record.delivery_date === dateStr);
 
@@ -134,7 +110,7 @@ const CustomerDeliveryTable = ({ customerId, customerName, month, year }: Custom
           notes: undefined
         });
       }
-    });
+    }
 
     return records;
   };
@@ -143,30 +119,8 @@ const CustomerDeliveryTable = ({ customerId, customerName, month, year }: Custom
     const daysInMonth = getDaysInMonth(currentMonth, currentYear);
     const records: DeliveryRecord[] = [];
 
-    // Create array of all days in proper order (1-28/29, then 30, then 31)
-    const dayOrder: number[] = [];
-    
-    // Add days 1-28
-    for (let day = 1; day <= 28; day++) {
-      dayOrder.push(day);
-    }
-    
-    // Add day 29 if it exists
-    if (daysInMonth >= 29) {
-      dayOrder.push(29);
-    }
-    
-    // Add day 30 if it exists
-    if (daysInMonth >= 30) {
-      dayOrder.push(30);
-    }
-    
-    // Add day 31 if it exists
-    if (daysInMonth >= 31) {
-      dayOrder.push(31);
-    }
-
-    dayOrder.forEach(day => {
+    // Generate records in normal date order (1, 2, 3, ..., 28/29/30/31)
+    for (let day = 1; day <= daysInMonth; day++) {
       const dateStr = `${currentYear}-${currentMonth.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
       let status: 'delivered' | 'missed' | 'holiday' = 'missed';
       let time: string | undefined;
@@ -188,9 +142,35 @@ const CustomerDeliveryTable = ({ customerId, customerName, month, year }: Custom
         photo_url: photoUrl,
         quantity_delivered: status === 'delivered' ? 2 : 0
       });
-    });
+    }
 
     setDeliveryRecords(records);
+  };
+
+  const navigateMonth = (direction: 'prev' | 'next') => {
+    if (direction === 'prev') {
+      if (currentMonth === 1) {
+        setCurrentMonth(12);
+        setCurrentYear(currentYear - 1);
+      } else {
+        setCurrentMonth(currentMonth - 1);
+      }
+    } else {
+      if (currentMonth === 12) {
+        setCurrentMonth(1);
+        setCurrentYear(currentYear + 1);
+      } else {
+        setCurrentMonth(currentMonth + 1);
+      }
+    }
+  };
+
+  const getMonthName = (month: number) => {
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return monthNames[month - 1];
   };
 
   const getStatusBadge = (status: string) => {
@@ -217,7 +197,7 @@ const CustomerDeliveryTable = ({ customerId, customerName, month, year }: Custom
   };
 
   const exportToExcel = () => {
-    const monthName = new Date(currentYear, currentMonth - 1).toLocaleDateString('en-US', { month: 'long' });
+    const monthName = getMonthName(currentMonth);
     const headers = ['Date', 'Day', 'Month', 'Year', 'Status', 'Time', 'Quantity (L)', 'Notes'];
     
     const csvData = deliveryRecords.map(record => {
@@ -263,7 +243,7 @@ const CustomerDeliveryTable = ({ customerId, customerName, month, year }: Custom
     window.URL.revokeObjectURL(url);
   };
 
-  const monthName = new Date(currentYear, currentMonth - 1).toLocaleDateString('en-US', { month: 'long' });
+  const monthName = getMonthName(currentMonth);
   const deliveredDays = deliveryRecords.filter(r => r.status === 'delivered').length;
   const missedDays = deliveryRecords.filter(r => r.status === 'missed').length;
   const holidayDays = deliveryRecords.filter(r => r.status === 'holiday').length;
@@ -283,6 +263,40 @@ const CustomerDeliveryTable = ({ customerId, customerName, month, year }: Custom
 
   return (
     <div className="space-y-6">
+      {/* Month Navigation */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigateMonth('prev')}
+              className="flex items-center gap-2"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Previous Month
+            </Button>
+            
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-blue-600">{monthName} {currentYear}</h2>
+              <p className="text-sm text-gray-600">
+                {getDaysInMonth(currentMonth, currentYear)} days in this month
+              </p>
+            </div>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigateMonth('next')}
+              className="flex items-center gap-2"
+            >
+              Next Month
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Summary Stats */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card>
