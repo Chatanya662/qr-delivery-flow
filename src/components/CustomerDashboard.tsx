@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, Package, TrendingUp, Bell, User, CreditCard, LogOut } from 'lucide-react';
+import { Calendar, Package, TrendingUp, Bell, User, CreditCard, LogOut, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import CustomerBilling from './CustomerBilling';
@@ -31,6 +30,7 @@ const CustomerDashboard = ({ customerId, user, onSignOut }: CustomerDashboardPro
   const [loading, setLoading] = useState(true);
   const [currentMonth] = useState(new Date().getMonth() + 1);
   const [currentYear] = useState(new Date().getFullYear());
+  const [currentDate] = useState(new Date());
   const { toast } = useToast();
 
   // Determine the actual customer ID to use
@@ -50,6 +50,29 @@ const CustomerDashboard = ({ customerId, user, onSignOut }: CustomerDashboardPro
     const monthName = monthNames[month - 1];
     const daysInMonth = getDaysInMonth(month, year);
     return `${monthName} ${year} (1 to ${daysInMonth} days)`;
+  };
+
+  // Helper function to get current date info
+  const getCurrentDateInfo = () => {
+    const today = new Date();
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    
+    return {
+      dayName: dayNames[today.getDay()],
+      dayNumber: today.getDate(),
+      monthName: monthNames[today.getMonth()],
+      year: today.getFullYear(),
+      formattedDate: today.toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      })
+    };
   };
 
   useEffect(() => {
@@ -147,6 +170,7 @@ const CustomerDashboard = ({ customerId, user, onSignOut }: CustomerDashboardPro
   }
 
   const currentMonthFormatted = formatMonthWithDays(currentMonth, currentYear);
+  const dateInfo = getCurrentDateInfo();
 
   // Mock billing data - this would come from your billing calculations
   const billingData = {
@@ -165,15 +189,30 @@ const CustomerDashboard = ({ customerId, user, onSignOut }: CustomerDashboardPro
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
+        {/* Header with Date Information */}
         <div className="mb-8 flex justify-between items-start">
           <div>
             <h1 className="text-3xl font-bold text-gray-800 mb-2">Welcome, {customer.name}!</h1>
             <p className="text-gray-600">Your KC Farms milk delivery dashboard</p>
-            <div className="mt-2">
-              <Badge variant="outline" className="text-sm">
-                Current Period: {currentMonthFormatted}
-              </Badge>
+            
+            {/* Current Date Information */}
+            <div className="mt-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-blue-500" />
+                <span className="text-lg font-medium text-blue-700">{dateInfo.formattedDate}</span>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Badge variant="outline" className="text-sm bg-blue-50">
+                  <Calendar className="w-3 h-3 mr-1" />
+                  Today: {dateInfo.dayName}, {dateInfo.monthName} {dateInfo.dayNumber}
+                </Badge>
+                <Badge variant="outline" className="text-sm bg-green-50">
+                  Current Year: {dateInfo.year}
+                </Badge>
+                <Badge variant="outline" className="text-sm bg-purple-50">
+                  Billing Period: {currentMonthFormatted}
+                </Badge>
+              </div>
             </div>
           </div>
           {onSignOut && (
@@ -183,6 +222,36 @@ const CustomerDashboard = ({ customerId, user, onSignOut }: CustomerDashboardPro
             </Button>
           )}
         </div>
+
+        {/* Date Summary Card */}
+        <Card className="mb-8 border-l-4 border-l-blue-500">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Calendar className="w-5 h-5 text-blue-600" />
+              Current Billing Period Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="text-center p-3 bg-blue-50 rounded-lg">
+                <div className="text-2xl font-bold text-blue-600">{currentMonth}</div>
+                <div className="text-sm text-gray-600">Current Month</div>
+              </div>
+              <div className="text-center p-3 bg-green-50 rounded-lg">
+                <div className="text-2xl font-bold text-green-600">{currentYear}</div>
+                <div className="text-sm text-gray-600">Current Year</div>
+              </div>
+              <div className="text-center p-3 bg-orange-50 rounded-lg">
+                <div className="text-2xl font-bold text-orange-600">{dateInfo.dayNumber}</div>
+                <div className="text-sm text-gray-600">Today's Date</div>
+              </div>
+              <div className="text-center p-3 bg-purple-50 rounded-lg">
+                <div className="text-2xl font-bold text-purple-600">{getDaysInMonth(currentMonth, currentYear)}</div>
+                <div className="text-sm text-gray-600">Days in Month</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
