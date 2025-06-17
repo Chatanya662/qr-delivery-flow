@@ -83,7 +83,7 @@ const CustomerDeliveryTable = ({ customerId, customerName, month, year }: Custom
     const daysInMonth = getDaysInMonth(currentMonth, currentYear);
     const records: DeliveryRecord[] = [];
 
-    // Generate records in normal date order (1, 2, 3, ..., 28/29/30/31)
+    // Generate records in proper order: 1-28, then 29 (if exists), then 30 (if exists), then 31 (if exists)
     for (let day = 1; day <= daysInMonth; day++) {
       const dateStr = `${currentYear}-${currentMonth.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
       const dbRecord = dbRecords.find(record => record.delivery_date === dateStr);
@@ -119,7 +119,7 @@ const CustomerDeliveryTable = ({ customerId, customerName, month, year }: Custom
     const daysInMonth = getDaysInMonth(currentMonth, currentYear);
     const records: DeliveryRecord[] = [];
 
-    // Generate records in normal date order (1, 2, 3, ..., 28/29/30/31)
+    // Generate records in proper sequential order
     for (let day = 1; day <= daysInMonth; day++) {
       const dateStr = `${currentYear}-${currentMonth.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
       let status: 'delivered' | 'missed' | 'holiday' = 'missed';
@@ -343,7 +343,7 @@ const CustomerDeliveryTable = ({ customerId, customerName, month, year }: Custom
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Calendar className="w-5 h-5" />
-              {customerName} - {monthName} {currentYear} Delivery Report
+              {customerName} - {currentYear} {monthName} Delivery Report
             </CardTitle>
             <Button onClick={exportToExcel} variant="outline" size="sm">
               <Download className="w-4 h-4 mr-2" />

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Camera, Check, X } from 'lucide-react';
+import { Camera, Check, X, CheckCircle, XCircle } from 'lucide-react';
 
 interface DeliveryActionButtonsProps {
   onDelivered: (quantity: number) => void;
@@ -34,6 +34,54 @@ const DeliveryActionButtons = ({
   const pricePerLiter = 100; // ₹100 per liter for cow milk
   const totalPrice = selectedQuantity * pricePerLiter;
 
+  // If already delivered or missed, show completion status
+  if (isDelivered || isMissed) {
+    return (
+      <div className="space-y-4">
+        <div className={`p-4 rounded-lg border-2 ${
+          isDelivered 
+            ? 'bg-green-50 border-green-200' 
+            : 'bg-red-50 border-red-200'
+        }`}>
+          <div className="flex items-center justify-center gap-2">
+            {isDelivered ? (
+              <>
+                <CheckCircle className="w-6 h-6 text-green-600" />
+                <span className="text-lg font-semibold text-green-800">
+                  Delivery Completed Successfully
+                </span>
+              </>
+            ) : (
+              <>
+                <XCircle className="w-6 h-6 text-red-600" />
+                <span className="text-lg font-semibold text-red-800">
+                  Delivery Marked as Missed
+                </span>
+              </>
+            )}
+          </div>
+          {isDelivered && (
+            <div className="text-center mt-2 text-sm text-green-700">
+              Customer will receive their milk delivery confirmation
+            </div>
+          )}
+        </div>
+
+        {/* Option to take photo even after delivery status is set */}
+        <div className="flex justify-center">
+          <Button 
+            onClick={onTakePhoto}
+            variant="outline"
+            className="w-full"
+          >
+            <Camera className="w-4 h-4 mr-2" />
+            {isDelivered ? 'Add Delivery Photo' : 'Add Photo for Record'}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* Quantity Selector */}
@@ -63,21 +111,18 @@ const DeliveryActionButtons = ({
       <div className="grid grid-cols-3 gap-2">
         <Button 
           onClick={() => onDelivered(selectedQuantity)}
-          className={`${isDelivered ? 'bg-green-600' : 'bg-green-500 hover:bg-green-600'}`}
-          disabled={isDelivered}
+          className="bg-green-500 hover:bg-green-600"
         >
           <Check className="w-4 h-4 mr-1" />
-          {isDelivered ? 'Delivered' : 'Deliver'}
+          Deliver
         </Button>
         
         <Button 
           onClick={onMissed}
           variant="destructive"
-          disabled={isMissed}
-          className={isMissed ? 'bg-red-600' : ''}
         >
           <X className="w-4 h-4 mr-1" />
-          {isMissed ? 'Missed' : 'Miss'}
+          Miss
         </Button>
         
         <Button 
