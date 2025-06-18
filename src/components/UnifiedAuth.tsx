@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,8 +23,36 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
   const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
 
+  useEffect(() => {
+    // Check if user is already logged in
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        onAuthSuccess(session.user);
+      }
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed:', event, session);
+      if (session?.user) {
+        // For customers, ensure customer record exists before proceeding
+        if (userRole === 'customer') {
+          createCustomerRecord(session.user).then(() => {
+            onAuthSuccess(session.user);
+          });
+        } else {
+          onAuthSuccess(session.user);
+        }
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [onAuthSuccess, userRole]);
+
   const createCustomerRecord = async (user: SupabaseUser) => {
     try {
+      console.log('Creating customer record for user:', user.id);
+      
       // Check if customer record already exists
       const { data: existingCustomer } = await supabase
         .from('customers')
@@ -36,12 +65,12 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
         return;
       }
 
-      // Create a new customer record for Google OAuth users
+      // Create a new customer record
       const { error: customerError } = await supabase
         .from('customers')
         .insert({
           profile_id: user.id,
-          name: user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'Customer',
+          name: user.user_metadata?.full_name || user.user_metadata?.name || name || user.email || 'Customer',
           address: 'Please update your address',
           quantity: 1,
           contact_number: user.phone || ''
@@ -64,10 +93,10 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
 
   const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password || !name) {
+    if (!email || !password || (userRole === 'customer' && !name)) {
       toast({
         title: "Error",
-        description: "Please fill in all fields",
+        description: userRole === 'customer' ? "Please fill in all fields" : "Please enter email and password",
         variant: "destructive",
       });
       return;
@@ -77,7 +106,7 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
     try {
       console.log(`Attempting email signup for role: ${userRole}`);
       
-      const { data, error } = await supabase.auth.signUp({
+      const signupData = {
         email,
         password,
         options: {
@@ -87,7 +116,9 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
             role: userRole
           }
         }
-      });
+      };
+
+      const { data, error } = await supabase.auth.signUp(signupData);
 
       if (error) {
         console.error('Signup error:', error);
@@ -107,11 +138,19 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
           await createCustomerRecord(data.user);
         }
         
-        toast({
-          title: "Success", 
-          description: "Account created successfully! Please check your email for verification.",
-        });
-        onAuthSuccess(data.user);
+        // Check if email confirmation is required
+        if (!data.session) {
+          toast({
+            title: "Success", 
+            description: "Account created successfully! Please check your email for verification.",
+          });
+        } else {
+          toast({
+            title: "Success", 
+            description: "Account created successfully! You are now logged in.",
+          });
+          onAuthSuccess(data.user);
+        }
       }
     } catch (error) {
       console.error('Signup error:', error);
@@ -156,39 +195,17 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
       }
 
       if (data.user) {
-        // Check if user's role matches the expected role for this interface
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', data.user.id)
-          .single();
-
-        if (profileError) {
-          console.error('Error fetching user profile:', profileError);
-          toast({
-            title: "Error",
-            description: "Failed to load user profile",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        if (profile.role !== userRole) {
-          await supabase.auth.signOut();
-          toast({
-            title: "Access Denied",
-            description: `This account is registered as ${profile.role}. Please use the correct interface.`,
-            variant: "destructive",
-          });
-          return;
-        }
-
+        console.log('User signed in successfully:', data.user.id);
+        
         // For customer role, ensure customer record exists
         if (userRole === 'customer') {
           await createCustomerRecord(data.user);
         }
-
-        console.log('User signed in successfully:', data.user.id);
+        
+        toast({
+          title: "Success",
+          description: "Successfully signed in!",
+        });
         onAuthSuccess(data.user);
       }
     } catch (error) {
@@ -313,7 +330,7 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
                         size="sm"
                         className="absolute right-0 top-0 h-full px-3"
                         onClick={() => setShowPassword(!showPassword)}
-                      >
+                      > 
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </Button>
                     </div>
