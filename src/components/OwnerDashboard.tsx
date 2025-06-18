@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,9 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Users, Package, TrendingUp, Plus, Search, Edit, Trash2, BarChart3, Loader2, Phone, CreditCard } from 'lucide-react';
+import { Users, Package, TrendingUp, Plus, Search, Edit, Trash2, BarChart3, Loader2, Phone, CreditCard, FileText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 import QuantityManager from './QuantityManager';
 import ReportsOverview from './ReportsOverview';
 import CustomerPaymentManager from './CustomerPaymentManager';
@@ -31,6 +31,7 @@ const OwnerDashboard = () => {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchCustomers();
@@ -389,9 +390,14 @@ const OwnerDashboard = () => {
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-6xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">KC Farms - Owner Dashboard</h1>
-          <p className="text-gray-600">Complete management of your milk delivery business</p>
+        <div className="mb-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">KC Farms - Owner Dashboard</h1>
+          </div>
+          <Button onClick={() => navigate('/daily-report')} variant="outline">
+            <FileText className="w-4 h-4 mr-2" />
+            Daily Reports
+          </Button>
         </div>
 
         {/* Stats Cards */}

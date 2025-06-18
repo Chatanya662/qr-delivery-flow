@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, FileText } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import RoleSelector from '@/components/RoleSelector';
 import CustomerInterface from '@/components/CustomerInterface';
@@ -60,10 +60,6 @@ const Index = () => {
             <Button variant="outline" onClick={handleBack}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Role Selection
-            </Button>
-            <Button onClick={() => navigate('/daily-report')} variant="outline">
-              <FileText className="w-4 h-4 mr-2" />
-              Daily Reports
             </Button>
           </div>
         </div>
