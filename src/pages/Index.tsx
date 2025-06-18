@@ -56,10 +56,11 @@ const Index = () => {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="sticky top-0 z-10 bg-white border-b shadow-sm">
-          <div className="max-w-7xl mx-auto p-4 flex justify-between items-center">
-            <Button variant="outline" onClick={handleBack}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Role Selection
+          <div className="max-w-7xl mx-auto p-3 sm:p-4 flex justify-between items-center">
+            <Button variant="outline" onClick={handleBack} size="sm" className="text-sm">
+              <ArrowLeft className="w-4 h-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Back to Role Selection</span>
+              <span className="sm:hidden">Back</span>
             </Button>
           </div>
         </div>

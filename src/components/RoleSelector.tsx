@@ -36,30 +36,30 @@ const RoleSelector = ({ onRoleSelect }: RoleSelectorProps) => {
   ];
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="max-w-4xl mx-auto text-center">
-        <div className="mb-12">
-          <h1 className="text-4xl font-bold text-gray-800 mb-4">
+    <div className="min-h-screen flex items-center justify-center p-4 sm:p-6">
+      <div className="w-full max-w-6xl mx-auto text-center">
+        <div className="mb-8 sm:mb-12">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-800 mb-2 sm:mb-4 px-4">
             Milk Delivery System
           </h1>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 px-2">
           {roles.map((role) => {
             const IconComponent = role.icon;
             return (
-              <Card key={role.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader className="text-center pb-4">
-                  <div className={`w-16 h-16 ${role.color} rounded-full flex items-center justify-center mx-auto mb-4`}>
-                    <IconComponent className="w-8 h-8 text-white" />
+              <Card key={role.id} className="hover:shadow-lg transition-shadow h-full">
+                <CardHeader className="text-center pb-3 sm:pb-4">
+                  <div className={`w-12 h-12 sm:w-16 sm:h-16 ${role.color} rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4`}>
+                    <IconComponent className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                   </div>
-                  <CardTitle className="text-xl">{role.title}</CardTitle>
+                  <CardTitle className="text-lg sm:text-xl">{role.title}</CardTitle>
                 </CardHeader>
-                <CardContent className="text-center">
-                  <p className="text-gray-600 mb-6">{role.description}</p>
+                <CardContent className="text-center px-4 sm:px-6">
+                  <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6 leading-relaxed">{role.description}</p>
                   <Button
                     onClick={() => onRoleSelect(role.id)}
-                    className={`w-full ${role.color} text-white`}
+                    className={`w-full ${role.color} text-white text-sm sm:text-base py-2 sm:py-3`}
                   >
                     Continue as {role.title}
                   </Button>

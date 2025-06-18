@@ -273,33 +273,33 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="flex items-center justify-between mb-4">
-            <Button variant="ghost" onClick={onBack} size="sm">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
+      <Card className="w-full max-w-md mx-auto">
+        <CardHeader className="text-center space-y-2 sm:space-y-4">
+          <div className="flex items-center justify-between mb-2 sm:mb-4">
+            <Button variant="ghost" onClick={onBack} size="sm" className="text-sm">
+              <ArrowLeft className="w-4 h-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Back</span>
             </Button>
           </div>
-          <CardTitle className="text-2xl font-bold text-gray-800">
+          <CardTitle className="text-xl sm:text-2xl font-bold text-gray-800 px-2">
             {getRoleDisplayName()} Portal
           </CardTitle>
-          <p className="text-gray-600">
+          <p className="text-sm sm:text-base text-gray-600 px-2 leading-relaxed">
             {showSignup ? 'Sign in or create your customer account' : 'Sign in to your account'}
           </p>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 sm:px-6">
           {showSignup ? (
             <Tabs defaultValue="signin" className="space-y-4">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="signin">Sign In</TabsTrigger>
-                <TabsTrigger value="signup">Sign Up</TabsTrigger>
+                <TabsTrigger value="signin" className="text-sm">Sign In</TabsTrigger>
+                <TabsTrigger value="signup" className="text-sm">Sign Up</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="signin">
+              <TabsContent value="signin" className="space-y-4">
                 <form onSubmit={handleEmailSignIn} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
                       <Mail className="w-4 h-4 inline mr-1" />
                       Email
                     </label>
@@ -309,10 +309,11 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
+                      className="text-sm sm:text-base"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
                       <Lock className="w-4 h-4 inline mr-1" />
                       Password
                     </label>
@@ -323,6 +324,7 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
+                        className="text-sm sm:text-base pr-10"
                       />
                       <Button
                         type="button"
@@ -335,16 +337,16 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
                       </Button>
                     </div>
                   </div>
-                  <Button type="submit" disabled={loading} className="w-full">
+                  <Button type="submit" disabled={loading} className="w-full text-sm sm:text-base py-2 sm:py-3">
                     {loading ? 'Signing in...' : 'Sign In'}
                   </Button>
                 </form>
               </TabsContent>
 
-              <TabsContent value="signup">
+              <TabsContent value="signup" className="space-y-4">
                 <form onSubmit={handleEmailSignUp} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
                       <User className="w-4 h-4 inline mr-1" />
                       Full Name
                     </label>
@@ -354,10 +356,11 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       required
+                      className="text-sm sm:text-base"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
                       <Mail className="w-4 h-4 inline mr-1" />
                       Email
                     </label>
@@ -367,10 +370,11 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
+                      className="text-sm sm:text-base"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
                       <Lock className="w-4 h-4 inline mr-1" />
                       Password
                     </label>
@@ -381,6 +385,7 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
+                        className="text-sm sm:text-base pr-10"
                       />
                       <Button
                         type="button"
@@ -393,7 +398,7 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
                       </Button>
                     </div>
                   </div>
-                  <Button type="submit" disabled={loading} className="w-full">
+                  <Button type="submit" disabled={loading} className="w-full text-sm sm:text-base py-2 sm:py-3">
                     {loading ? 'Creating account...' : 'Create Account'}
                   </Button>
                 </form>
@@ -402,8 +407,8 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
           ) : (
             // Sign-in only form for delivery and owner
             <form onSubmit={handleEmailSignIn} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
                   <Mail className="w-4 h-4 inline mr-1" />
                   Email
                 </label>
@@ -413,10 +418,11 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  className="text-sm sm:text-base"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
                   <Lock className="w-4 h-4 inline mr-1" />
                   Password
                 </label>
@@ -427,6 +433,7 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    className="text-sm sm:text-base pr-10"
                   />
                   <Button
                     type="button"
@@ -439,7 +446,7 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
                   </Button>
                 </div>
               </div>
-              <Button type="submit" disabled={loading} className="w-full">
+              <Button type="submit" disabled={loading} className="w-full text-sm sm:text-base py-2 sm:py-3">
                 {loading ? 'Signing in...' : 'Sign In'}
               </Button>
             </form>
@@ -458,7 +465,7 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
               onClick={handleGoogleSignIn}
               disabled={loading}
               variant="outline"
-              className="w-full mt-4"
+              className="w-full mt-4 text-sm sm:text-base py-2 sm:py-3"
             >
               <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
                 <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -466,7 +473,7 @@ const UnifiedAuth = ({ userRole, onAuthSuccess, onBack }: UnifiedAuthProps) => {
                 <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                 <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
               </svg>
-              Continue with Google
+              <span className="truncate">Continue with Google</span>
             </Button>
           </div>
         </CardContent>
